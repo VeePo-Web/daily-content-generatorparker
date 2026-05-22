@@ -1,0 +1,1 @@
+ALTER TABLE public.orders ALTER COLUMN currency SET DEFAULT 'cad';

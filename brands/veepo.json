@@ -1,0 +1,139 @@
+{
+  "id": "veepo",
+  "name": "Veepo.ca",
+  "url": "https://veepo.ca",
+  "templates_url": "https://veepo.ca/templates",
+  "owner_email": "parker@veepo.ca",
+  "active": true,
+  "created_at": "2026-05-20",
+
+  "product": {
+    "name": "Portfolio Website Template",
+    "launch_price": 799,
+    "monthly_price": 69,
+    "delivery_days": 14,
+    "core_promise": "I build websites that make the phone ring.",
+    "tagline": "Two weeks from now, your website is live and working for you."
+  },
+
+  "target_audience": {
+    "primary": "photographers",
+    "secondary": "videographers, artists, creative freelancers, brand photographers",
+    "pain_point": "Their work is premium but their website makes them look amateur — costing them better clients, higher rates, and destination opportunities",
+    "dream_outcome": "A premium portfolio that makes dream clients trust their price before the first call — and opens doors to destination weddings, brand campaigns, and international work",
+    "identity_tension": "They see themselves as an artist, but they know they need to look like a business",
+    "buying_trigger": "\"I'm good enough to charge more, but I don't look like it online.\"",
+    "dream_inbox": [
+      "We're launching a boutique hotel in Tulum and love your style.",
+      "Would you travel to Italy for our wedding weekend?",
+      "Our agency is looking for a lifestyle photographer for a campaign.",
+      "Can we book you for a brand shoot in New York?",
+      "We found your portfolio and think you'd be perfect for this project."
+    ]
+  },
+
+  "persona": {
+    "name": "Portfolio-to-Passport Photographer",
+    "age_range": "22-38",
+    "career_stage": "2-8 years in, past beginner, not fully premium yet",
+    "income": "$20k-$150k/year depending on niche",
+    "current_presence": "Instagram-heavy, maybe an outdated Squarespace/Wix site, maybe nothing",
+    "platforms": ["Instagram", "TikTok", "Pinterest", "YouTube"],
+    "niches": ["wedding photographer", "destination photographer", "brand photographer", "lifestyle photographer", "travel photographer", "portrait photographer"],
+    "the_moment": "A potential client asks 'Do you have a website?' and they pause — because they either send Instagram, a Google Drive folder, or a site they secretly hate.",
+    "before_state": [
+      "My Instagram looks good, but it doesn't tell the full story.",
+      "I feel embarrassed sending people my current website.",
+      "I know I should charge more, but my brand doesn't look expensive enough yet.",
+      "People love my photos, but I'm still getting low-budget inquiries.",
+      "I'm tired of relying only on referrals and DMs.",
+      "I want to travel for photography, but my brand still looks local."
+    ],
+    "after_state": [
+      "Book higher-quality clients who already trust them before the first call",
+      "Raise prices without over-explaining",
+      "Attract destination weddings, luxury travel shoots, brand campaigns, hotel work",
+      "Feel proud when someone asks for their website",
+      "Stop feeling behind compared to other photographers",
+      "Turn photography into a lifestyle, not just a service"
+    ],
+    "objections": [
+      "Can I justify spending $799 right now?",
+      "Couldn't I just make something in Squarespace?",
+      "I don't have time to organize all my photos.",
+      "Am I premium enough for this yet?",
+      "Will this actually look like me?"
+    ],
+    "emotional_transformation": "\"I finally look like the photographer I know I'm becoming.\""
+  },
+
+  "brand_voice": {
+    "style": ["Alex Hormozi directness", "Russell Brunson storytelling"],
+    "tone": ["direct", "outcome-focused", "confident", "founder-led", "Parker is the voice — not the brand"],
+    "never_say": ["learn more", "click here", "check out", "innovative", "passionate", "we", "our team"],
+    "always_do": [
+      "write as Parker — first person singular, founder voice",
+      "lead with the outcome or the transformation",
+      "use specific numbers when possible ($799, 14 days, $69/month)",
+      "speak the photographer's language: bookings, inquiries, galleries, shoots, clients, sessions, album delivery",
+      "name the gap between their talent and their presentation",
+      "end with a CTA: DM me WEBSITE or link in first comment"
+    ]
+  },
+
+  "copy_angles": {
+    "pain": [
+      "Your best work should not be buried six posts deep on Instagram.",
+      "If your photos look premium but your website does not, high-value clients feel the mismatch.",
+      "A dream client should not have to scroll, guess, or DM just to understand what you do.",
+      "Your portfolio should make your price feel natural."
+    ],
+    "desire": [
+      "Imagine sending one link and instantly looking like the obvious choice.",
+      "Imagine a couple in Italy, a boutique hotel in Tulum, or a fashion brand in New York landing on your site and thinking: 'This is the photographer.'",
+      "Your website should feel like the beginning of a bigger chapter.",
+      "Built for photographers ready to move from local bookings to premium opportunities."
+    ],
+    "identity": [
+      "You are not just taking photos. You are building a visual brand.",
+      "Look like the photographer your future clients are already searching for.",
+      "Stop presenting yourself like a freelancer. Start presenting yourself like a premium creative.",
+      "You don't wait until you're premium to look premium. You look premium so better clients can recognize you."
+    ],
+    "hooks": [
+      "Your photos already look expensive. Your website should too.",
+      "Turn your portfolio into a premium booking asset.",
+      "Stop sending dream clients to a scattered Instagram page.",
+      "Build the website that makes clients trust your price before they meet you.",
+      "Look destination-ready before the destination client finds you."
+    ]
+  },
+
+  "proof_points": [
+    "Website live in 14 days guaranteed",
+    "$799 — less than one missed booking from a dream client",
+    "$69/month managed: no tech headaches, no maintenance, no figuring it out alone",
+    "Built specifically for portfolio industries — not adapted from a generic business theme",
+    "One link that makes serious clients understand: this photographer is ready"
+  ],
+
+  "campaigns": [
+    {
+      "id": "portfolio-photographer-2026",
+      "name": "Portfolio & Photographer Funnel 2026",
+      "active": true,
+      "platforms": ["linkedin", "x"],
+      "post_times": {
+        "linkedin": { "days": ["tuesday", "wednesday", "thursday"], "time_mst": "09:00" },
+        "x": { "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "time_mst": "07:30" }
+      },
+      "pillars": [
+        { "name": "PROOF", "weight": 0.25 },
+        { "name": "PAIN", "weight": 0.25 },
+        { "name": "EDUCATION", "weight": 0.25 },
+        { "name": "PROCESS", "weight": 0.05 },
+        { "name": "OFFER", "weight": 0.20 }
+      ]
+    }
+  ]
+}
