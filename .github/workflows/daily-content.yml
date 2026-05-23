@@ -1,0 +1,34 @@
+# Runs every day at 8:00 AM Mountain Standard Time (15:00 UTC)
+# GitHub Actions is free for public repos, and free up to 2,000 min/month on private repos
+# This job takes ~30 seconds, so you'll use ~15 minutes/month — well within the free tier
+
+name: Daily Social Content
+
+on:
+  schedule:
+    - cron: "0 15 * * *"   # 8:00 AM MST (UTC-7) — arrives in inbox before you start work
+  workflow_dispatch:         # Lets you trigger it manually from GitHub UI (for testing)
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate and email content
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python generator.py
