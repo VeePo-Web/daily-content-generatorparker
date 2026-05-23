@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Clock, Settings } from "lucide-react";
+import { CalendarDays, Clock, Settings, Megaphone } from "lucide-react";
 
 export default function Nav() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -20,6 +20,10 @@ export default function Nav() {
         <NavLink to="/history" className={linkClass}>
           <Clock size={14} />
           History
+        </NavLink>
+        <NavLink to="/sales" className={linkClass}>
+          <Megaphone size={14} />
+          Sales
         </NavLink>
         <NavLink to="/settings" className={linkClass}>
           <Settings size={14} />
