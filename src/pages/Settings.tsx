@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Check } from "lucide-react";
+import { Eye, EyeOff, Check, Download, Brain } from "lucide-react";
 import Nav from "../components/studio/Nav";
+import { getLearningSummary, exportLearningSummary, getLearningInsights } from "../lib/posts";
 
 interface BrandConfig {
   product?: {
@@ -204,6 +205,51 @@ export default function Settings() {
               to initialize, then reload this page.
             </div>
           )}
+        </section>
+
+        {/* Learning Summary export */}
+        <section className="rounded-xl border border-slate-700 bg-slate-800 p-5">
+          <h2 className="text-sm font-semibold text-white mb-1 flex items-center gap-1.5">
+            <Brain size={14} className="text-blue-400" />
+            Generator Learning
+          </h2>
+          <p className="text-xs text-slate-500 mb-4">
+            As you select posts, the system builds a <code className="bg-slate-700 px-1 rounded">learning_summary.json</code> that
+            biases the Python generator toward what you actually pick. Export it and place it in{" "}
+            <code className="bg-slate-700 px-1 rounded">data/</code> so the generator reads it on the next run.
+          </p>
+          {(() => {
+            const summary = getLearningSummary();
+            const insights = getLearningInsights();
+            if (!summary) {
+              return (
+                <p className="text-xs text-slate-600 bg-slate-900/40 rounded p-3">
+                  Not enough data yet — select at least 5 posts to activate learning.
+                  ({insights.total_selections}/5 so far)
+                </p>
+              );
+            }
+            return (
+              <div className="space-y-3">
+                <div className="bg-slate-900/60 rounded p-3 text-xs font-mono text-slate-400 space-y-1">
+                  <p>Generated: {new Date(summary.generated_at).toLocaleDateString()}</p>
+                  <p>Based on: {summary.total_selections} selections</p>
+                  <p>Top niches: {summary.top_niches.join(", ")}</p>
+                  <p>Best hook pattern: {summary.best_hook_pattern ?? "—"}</p>
+                </div>
+                <button
+                  onClick={exportLearningSummary}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-500 transition-colors"
+                >
+                  <Download size={13} />
+                  Export learning_summary.json
+                </button>
+                <p className="text-xs text-slate-600">
+                  After exporting, move the file to <code>data/learning_summary.json</code> — generator reads it automatically on next run.
+                </p>
+              </div>
+            );
+          })()}
         </section>
 
         {/* System info */}

@@ -140,6 +140,17 @@
     "One link that makes serious clients understand: this photographer is ready"
   ],
 
+  "testimonials": [],
+
+  "offer_post_structure": [
+    "1. COST OF INACTION — Open with the dollar value of one missed premium booking ($3k-$20k destination wedding, $8k brand campaign, $12k hotel lifestyle shoot). Make the math visceral.",
+    "2. VALUE STACK — List every component of the $799 separately: full portfolio design, gallery, copy structure, mobile optimization, contact page, SEO basics, live in 14 days, done-for-you. Each line is its own paragraph.",
+    "3. TIME COMPRESSION — Emphasize 14 days and done-for-you. No DIY rabbit hole. No learning Squarespace. You send the work, Parker builds everything.",
+    "4. RISK REVERSAL — Worst case scenario if this doesn't work: you still have a professional portfolio website. State this directly.",
+    "5. THE MATH — One additional premium client per year. That's it. That's the entire ROI case. One client pays for multiple years of $69/month. Make the math undeniable.",
+    "6. SINGLE CTA — End with exactly one action: DM me WEBSITE or Reply WEBSITE and I will show you what yours could look like."
+  ],
+
   "campaigns": [
     {
       "id": "portfolio-photographer-2026",

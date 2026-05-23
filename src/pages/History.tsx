@@ -50,68 +50,113 @@ export default function History() {
         {/* Learning panel */}
         {insights.total_selections > 0 && (
           <div className="rounded-xl border border-slate-700 bg-slate-800 p-5">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
-              What's Working
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+                What's Working
+              </h2>
+              {insights.total_selections >= 5 && (
+                <span className="text-xs text-emerald-500 bg-emerald-950/40 border border-emerald-900/40 px-2 py-0.5 rounded-full">
+                  Generator learning active
+                </span>
+              )}
+            </div>
+
+            {/* Taste insights row */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-5">
               <div>
-                <p className="text-xs text-slate-500 mb-1">Most selected pillar</p>
-                {insights.most_selected_pillar && (
+                <p className="text-xs text-slate-500 mb-1">You pick most</p>
+                {insights.most_selected_pillar ? (
                   <div className="flex items-center gap-2">
                     <PillarBadge pillar={insights.most_selected_pillar} />
                     <span className="text-sm text-slate-300">
-                      {pct(
-                        insights.pillar_counts[insights.most_selected_pillar] ?? 0,
-                        insights.total_selections
-                      )}
+                      {pct(insights.pillar_counts[insights.most_selected_pillar] ?? 0, insights.total_selections)}
                     </span>
                   </div>
-                )}
+                ) : <span className="text-slate-600">—</span>}
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Most selected niche</p>
-                <p className="text-sm text-slate-200">
+                <p className="text-xs text-slate-500 mb-1">Top niche</p>
+                <p className="text-sm text-slate-200 leading-tight">
                   {insights.most_selected_niche ?? "—"}
                   {insights.most_selected_niche && (
                     <span className="text-slate-400 ml-1">
-                      {pct(
-                        insights.niche_counts[insights.most_selected_niche] ?? 0,
-                        insights.total_selections
-                      )}
+                      {pct(insights.niche_counts[insights.most_selected_niche] ?? 0, insights.total_selections)}
                     </span>
                   )}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-slate-500 mb-1">Least selected pillar</p>
-                {insights.least_selected_pillar && (
-                  <div className="flex items-center gap-2">
-                    <PillarBadge pillar={insights.least_selected_pillar} />
-                    <span className="text-sm text-slate-300">
-                      {pct(
-                        insights.pillar_counts[insights.least_selected_pillar] ?? 0,
-                        insights.total_selections
-                      )}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Avg selected score</p>
+                <p className="text-xs text-slate-500 mb-1">Avg quality score</p>
                 <p className="text-sm text-slate-200">
-                  {insights.average_selected_quality_score !== null
+                  {insights.average_selected_quality_score != null
                     ? `${insights.average_selected_quality_score}/10`
                     : "—"}
                 </p>
-                <p className="mt-1 text-xs text-slate-500">
-                  {insights.best_hook_pattern
-                    ? `Best hook: ${insights.best_hook_pattern}`
-                    : "No hook pattern yet"}
+                <p className="text-xs text-slate-600 mt-0.5">
+                  {insights.best_hook_pattern ? `Best hook: ${insights.best_hook_pattern}` : ""}
                 </p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">You skip most</p>
+                {insights.least_selected_pillar ? (
+                  <div className="flex items-center gap-2">
+                    <PillarBadge pillar={insights.least_selected_pillar} />
+                    <span className="text-sm text-slate-300">
+                      {pct(insights.pillar_counts[insights.least_selected_pillar] ?? 0, insights.total_selections)}
+                    </span>
+                  </div>
+                ) : <span className="text-slate-600">—</span>}
               </div>
             </div>
 
-            {/* Pillar breakdown bars */}
+            {/* Result-based insights — only shows when Parker has logged results */}
+            {insights.total_posted > 0 && (
+              <div className="mb-5 p-4 rounded-lg bg-slate-900/60 border border-slate-700 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Posts tracked</p>
+                  <p className="text-lg font-bold text-white">{insights.total_posted}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Avg DMs / post</p>
+                  <p className="text-lg font-bold text-emerald-400">
+                    {insights.avg_dms_per_post ?? "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Best pillar (DMs)</p>
+                  {insights.best_performing_pillar ? (
+                    <PillarBadge pillar={insights.best_performing_pillar} />
+                  ) : <span className="text-slate-600 text-sm">—</span>}
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Sales attributed</p>
+                  <p className="text-lg font-bold text-emerald-400">
+                    {insights.total_sales_attributed > 0
+                      ? `$${(insights.total_sales_attributed * 799).toLocaleString()}`
+                      : "—"}
+                  </p>
+                </div>
+                {insights.visual_creation_rate !== null && (
+                  <div className="col-span-2 sm:col-span-4 pt-2 border-t border-slate-700">
+                    <p className="text-xs text-slate-500 mb-1">Visual creation rate</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1 bg-slate-700 rounded-full h-1.5">
+                        <div
+                          className="h-1.5 rounded-full bg-blue-500"
+                          style={{ width: `${insights.visual_creation_rate}%` }}
+                        />
+                      </div>
+                      <span className="text-xs text-slate-400">{insights.visual_creation_rate}%</span>
+                      {insights.visual_creation_rate < 50 && (
+                        <span className="text-xs text-amber-500">↑ Create more visuals</span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Pillar selection bars */}
             <div className="space-y-2">
               {PILLARS.map((p) => {
                 const count = insights.pillar_counts[p] ?? 0;
@@ -122,20 +167,16 @@ export default function History() {
                   <div key={p} className="flex items-center gap-3">
                     <span className="w-20 text-xs text-slate-400">{p}</span>
                     <div className="flex-1 bg-slate-700 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full bg-blue-500"
-                        style={{ width: `${percentage}%` }}
-                      />
+                      <div className="h-1.5 rounded-full bg-blue-500" style={{ width: `${percentage}%` }} />
                     </div>
-                    <span className="w-8 text-xs text-slate-400 text-right">
-                      {percentage}%
-                    </span>
+                    <span className="w-8 text-xs text-slate-400 text-right">{percentage}%</span>
                   </div>
                 );
               })}
             </div>
             <p className="text-xs text-slate-600 mt-3">
-              Based on {insights.total_selections} selection{insights.total_selections !== 1 ? "s" : ""} so far
+              Based on {insights.total_selections} selection{insights.total_selections !== 1 ? "s" : ""}
+              {insights.total_posted > 0 ? ` · ${insights.total_posted} results logged` : " · log results on posted entries to unlock conversion data"}
             </p>
           </div>
         )}

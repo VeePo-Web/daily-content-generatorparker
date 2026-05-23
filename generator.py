@@ -110,6 +110,8 @@ def build_system_prompt(brand: dict[str, Any]) -> str:
     angles = brand.get("copy_angles", {})
     conversion = brand.get("conversion_layers", [])
     visuals = brand.get("visual_strategy", {})
+    testimonials = brand.get("testimonials", [])
+    offer_structure = brand.get("offer_post_structure", [])
 
     return f"""You write as Parker, founder of {brand['name']}. You are not a brand voice committee. You are one founder writing directly to photographers.
 
@@ -166,6 +168,12 @@ Hooks:
 
 VISUAL STRATEGY:
 {line_join(visuals.get('ideas', []))}
+
+REAL TESTIMONIALS (use only if a PROOF post — quote exactly, never paraphrase or invent):
+{chr(10).join(f"- {t.get('name', 'Client')}, {t.get('niche', '')}, {t.get('city', '')}: \"{t.get('quote', '')}\" — Result: {t.get('result', '')}" for t in testimonials) if testimonials else "- No testimonials yet. Do not invent them. Use social proof from proof_points instead."}
+
+OFFER POST STRUCTURE (use ONLY for OFFER pillar posts — follow this sequence exactly):
+{line_join(offer_structure) if offer_structure else "- Use standard Hormozi value equation: dream outcome, perceived likelihood, time delay, effort."}
 
 STYLE:
 1. Hormozi directness: specific numbers, blunt value, clear cost of inaction, direct CTA.
@@ -459,19 +467,189 @@ POST:
     return score_post(post)
 
 
+LEARNING_FILE = ROOT / "data" / "learning_summary.json"
+SEASONAL_HOOKS: dict[int, str] = {
+    1:  "New year, new brand. Most photographers are still posting the same tired grid.",
+    2:  "Wedding season inquiries start in February. Is your portfolio ready to receive them?",
+    3:  "Spring bookings open. The photographers booking destination work this summer locked in their sites months ago.",
+    4:  "Peak booking season is here. Are you converting attention into inquiries?",
+    5:  "Summer editorial season. Hotels, brands, and couples are actively scouting photographers right now.",
+    6:  "Mid-year is when photographers realize their rate increase is not working. Usually a presentation problem.",
+    7:  "Destination wedding season is live. The couples who found you need somewhere to land.",
+    8:  "Back to school is back to business. September inquiries start forming now.",
+    9:  "Fall booking season. Wedding photographers: next year's couples are researching you today.",
+    10: "Holiday portrait season. Your best time of year deserves a website that matches.",
+    11: "End-of-year push. The photographers who invested in their brand this year will feel it next year.",
+    12: "The quiet season is the build season. Rebrand now so January inquiries land somewhere premium.",
+}
+
+
+def load_learning_summary() -> dict[str, Any] | None:
+    if not LEARNING_FILE.exists():
+        return None
+    try:
+        data = json.loads(LEARNING_FILE.read_text(encoding="utf-8"))
+        print(f"  [Learning] Loaded summary with {data.get('total_selections', 0)} selections")
+        return data
+    except Exception as e:
+        print(f"  [Learning] Could not read learning_summary.json: {e}")
+        return None
+
+
+def apply_learning_to_pillars(
+    pillars: list[dict[str, Any]],
+    learning: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Adjust pillar selection based on Parker's historical picks."""
+    bias = learning.get("pillar_bias", {})
+    if not bias:
+        return pillars
+    # Re-weight and re-sort pillars by bias × original weight
+    for p in pillars:
+        p["_effective_weight"] = p.get("weight", 0.2) * bias.get(p["name"], 1.0)
+    pillars.sort(key=lambda p: p["_effective_weight"], reverse=True)
+    return pillars
+
+
+def get_recent_hooks(days: int = 21) -> list[str]:
+    """Pull hook lines from the last N days to pass as a dedup list."""
+    if not DATA_FILE.exists():
+        return []
+    try:
+        records = json.loads(DATA_FILE.read_text(encoding="utf-8"))
+    except Exception:
+        return []
+    from datetime import timedelta
+    cutoff = date.today() - timedelta(days=days)
+    hooks: list[str] = []
+    for r in records:
+        try:
+            record_date = date.fromisoformat(r["date"])
+        except Exception:
+            continue
+        if record_date >= cutoff:
+            for p in r.get("posts", []):
+                hook = p.get("hook", "")
+                if hook:
+                    hooks.append(hook[:80])  # trim for prompt size
+    return hooks
+
+
+def get_seasonal_note() -> str:
+    month = date.today().month
+    return SEASONAL_HOOKS.get(month, "")
+
+
+def build_candidate_prompt_with_context(
+    pillar: dict[str, Any],
+    post_number: int,
+    candidate_number: int,
+    niche: str,
+    recent_hooks: list[str],
+    learning: dict[str, Any] | None,
+    seasonal_note: str,
+) -> str:
+    dedup_section = ""
+    if recent_hooks:
+        hook_list = "\n".join(f"- {h}" for h in recent_hooks[:25])
+        dedup_section = f"""
+HOOKS ALREADY USED IN THE LAST 21 DAYS — do NOT repeat these angles or opening lines:
+{hook_list}
+
+Write a hook that takes a completely different angle from all of the above."""
+
+    learning_section = ""
+    if learning:
+        top = learning.get("top_niches", [])
+        pattern = learning.get("best_hook_pattern", "")
+        if top or pattern:
+            learning_section = f"""
+LEARNING FROM PARKER'S SELECTIONS:
+- Top performing niches he picks: {", ".join(top) if top else "—"}
+- Best hook pattern so far: {pattern or "—"}
+- Use this to write a post that matches what he has historically responded to."""
+
+    seasonal_section = ""
+    if seasonal_note:
+        seasonal_section = f"\nSEASONAL CONTEXT (use only if it fits naturally): {seasonal_note}"
+
+    return f"""Generate one candidate post.
+
+POST OPTION: {post_number}
+CANDIDATE: {candidate_number}
+PILLAR: {pillar['name']}
+NICHE: {niche}
+{dedup_section}{learning_section}{seasonal_section}
+
+Make this candidate meaningfully different from the obvious generic version. Use one specific photographer moment, one clear business cost, one mechanism, and one direct CTA.
+
+{"OFFER POST STRUCTURE — follow this sequence exactly: (1) Cost of inaction: name the dollar value of one missed booking. (2) Value stack: list what $799 actually includes line by line. (3) Time compression: 14 days, done-for-you, no DIY. (4) Risk reversal: worst case = you have a premium website. (5) The math: one additional client per year = paid for a decade. (6) Single CTA: DM me WEBSITE." if pillar['name'] == 'OFFER' else ""}
+
+Return this exact JSON shape:
+{expected_shape(pillar['name'], niche)}"""
+
+
 def generate_posts(brand: dict[str, Any], dry_run: bool = False) -> list[dict[str, Any]]:
     if dry_run:
         return build_dry_run_posts(brand)
 
     client = get_claude_client()
+    learning = load_learning_summary()
+    recent_hooks = get_recent_hooks(days=21)
+    seasonal_note = get_seasonal_note()
+
+    if recent_hooks:
+        print(f"  [Dedup] {len(recent_hooks)} recent hooks loaded — will avoid repeating")
+    if seasonal_note:
+        print(f"  [Seasonal] Month {date.today().month} context active")
+
     system_prompt = build_system_prompt(brand)
     pillars = get_todays_pillars(brand)
+
+    if learning:
+        pillars = apply_learning_to_pillars(pillars, learning)
+        print(f"  [Learning] Pillar order adjusted: {[p['name'] for p in pillars]}")
+
     candidates: list[dict[str, Any]] = []
 
     for i, pillar in enumerate(pillars, 1):
         for candidate_number in range(1, CANDIDATES_PER_PILLAR + 1):
-            print(f"  Candidate {len(candidates) + 1}/{len(pillars) * CANDIDATES_PER_PILLAR} - {pillar['name']}...")
-            candidate = generate_candidate(client, pillar, i, candidate_number, brand, system_prompt)
+            print(f"  Candidate {len(candidates) + 1}/{len(pillars) * CANDIDATES_PER_PILLAR} — {pillar['name']}...")
+            # Use enriched prompt with dedup + learning context
+            niche = brand.get("persona", {}).get("niches", ["photographer"])[
+                (date.today().timetuple().tm_yday + i + candidate_number) % len(brand.get("persona", {}).get("niches", ["photographer"]))
+            ]
+            prompt = build_candidate_prompt_with_context(
+                pillar, i, candidate_number, niche,
+                recent_hooks=recent_hooks,
+                learning=learning,
+                seasonal_note=seasonal_note,
+            )
+            shape = expected_shape(pillar["name"], niche)
+            raw = call_claude(client, system_prompt, prompt)
+            try:
+                post = extract_json(raw)
+            except json.JSONDecodeError:
+                post = repair_json(client, raw, shape)
+            post = normalize_post(post)
+            errors = validate_post(post)
+            if errors:
+                repair_prompt = f"""Revise this post so it passes validation.
+
+VALIDATION ERRORS:
+{line_join(errors)}
+
+Return valid JSON only, matching this shape:
+{shape}
+
+POST:
+{json.dumps(post, indent=2)}"""
+                revised = call_claude(client, system_prompt, repair_prompt)
+                post = normalize_post(extract_json(revised))
+                errors = validate_post(post)
+                if errors:
+                    raise GenerationError("; ".join(errors))
+            candidate = score_post(post)
             candidates.append(candidate)
             print(f"    score {candidate['quality_score']}: {candidate['hook'][:70]}...")
 
