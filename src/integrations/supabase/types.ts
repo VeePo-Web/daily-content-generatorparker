@@ -679,6 +679,72 @@ export type Database = {
         }
         Relationships: []
       }
+      generated_posts: {
+        Row: {
+          batch_date: string
+          batch_id: string
+          copy: string
+          created_at: string
+          id: string
+          image_asset_ids: string[]
+          image_urls: string[]
+          is_winner: boolean
+          platform: string
+          score: number
+          score_breakdown: Json
+          swap_token: string
+          template_product_id: string
+          theme_id: string | null
+        }
+        Insert: {
+          batch_date?: string
+          batch_id: string
+          copy: string
+          created_at?: string
+          id?: string
+          image_asset_ids?: string[]
+          image_urls?: string[]
+          is_winner?: boolean
+          platform: string
+          score?: number
+          score_breakdown?: Json
+          swap_token?: string
+          template_product_id: string
+          theme_id?: string | null
+        }
+        Update: {
+          batch_date?: string
+          batch_id?: string
+          copy?: string
+          created_at?: string
+          id?: string
+          image_asset_ids?: string[]
+          image_urls?: string[]
+          is_winner?: boolean
+          platform?: string
+          score?: number
+          score_breakdown?: Json
+          swap_token?: string
+          template_product_id?: string
+          theme_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_posts_template_product_id_fkey"
+            columns: ["template_product_id"]
+            isOneToOne: false
+            referencedRelation: "template_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "generated_posts_theme_id_fkey"
+            columns: ["theme_id"]
+            isOneToOne: false
+            referencedRelation: "post_themes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lookbook_look_products: {
         Row: {
           created_at: string
@@ -958,6 +1024,88 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      post_send_log: {
+        Row: {
+          batch_id: string
+          error: string | null
+          id: string
+          recipient_email: string
+          resend_id: string | null
+          sent_at: string
+          status: string
+          winner_post_id: string | null
+        }
+        Insert: {
+          batch_id: string
+          error?: string | null
+          id?: string
+          recipient_email: string
+          resend_id?: string | null
+          sent_at?: string
+          status?: string
+          winner_post_id?: string | null
+        }
+        Update: {
+          batch_id?: string
+          error?: string | null
+          id?: string
+          recipient_email?: string
+          resend_id?: string | null
+          sent_at?: string
+          status?: string
+          winner_post_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_send_log_winner_post_id_fkey"
+            columns: ["winner_post_id"]
+            isOneToOne: false
+            referencedRelation: "generated_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_themes: {
+        Row: {
+          category: string
+          created_at: string
+          enabled: boolean
+          hook: string
+          id: string
+          last_used_at: string | null
+          template_product_id: string | null
+          use_count: number
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          enabled?: boolean
+          hook: string
+          id?: string
+          last_used_at?: string | null
+          template_product_id?: string | null
+          use_count?: number
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          enabled?: boolean
+          hook?: string
+          id?: string
+          last_used_at?: string | null
+          template_product_id?: string | null
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_themes_template_product_id_fkey"
+            columns: ["template_product_id"]
+            isOneToOne: false
+            referencedRelation: "template_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       product_3d_models: {
         Row: {
@@ -1362,6 +1510,113 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      template_assets: {
+        Row: {
+          asset_type: string
+          caption: string | null
+          created_at: string
+          do_not_use: boolean
+          id: string
+          orientation: string
+          public_url: string
+          storage_path: string
+          tags: string[]
+          template_product_id: string | null
+          use_count: number
+        }
+        Insert: {
+          asset_type: string
+          caption?: string | null
+          created_at?: string
+          do_not_use?: boolean
+          id?: string
+          orientation?: string
+          public_url: string
+          storage_path: string
+          tags?: string[]
+          template_product_id?: string | null
+          use_count?: number
+        }
+        Update: {
+          asset_type?: string
+          caption?: string | null
+          created_at?: string
+          do_not_use?: boolean
+          id?: string
+          orientation?: string
+          public_url?: string
+          storage_path?: string
+          tags?: string[]
+          template_product_id?: string | null
+          use_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_assets_template_product_id_fkey"
+            columns: ["template_product_id"]
+            isOneToOne: false
+            referencedRelation: "template_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_products: {
+        Row: {
+          created_at: string
+          currency: string
+          enabled: boolean
+          id: string
+          ideal_customer: string | null
+          landing_url: string | null
+          name: string
+          one_liner: string | null
+          poison_list: string | null
+          price_monthly: number
+          price_one_time: number
+          proof_points: Json
+          slug: string
+          updated_at: string
+          vertical: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          currency?: string
+          enabled?: boolean
+          id?: string
+          ideal_customer?: string | null
+          landing_url?: string | null
+          name: string
+          one_liner?: string | null
+          poison_list?: string | null
+          price_monthly?: number
+          price_one_time?: number
+          proof_points?: Json
+          slug: string
+          updated_at?: string
+          vertical: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          currency?: string
+          enabled?: boolean
+          id?: string
+          ideal_customer?: string | null
+          landing_url?: string | null
+          name?: string
+          one_liner?: string | null
+          poison_list?: string | null
+          price_monthly?: number
+          price_one_time?: number
+          proof_points?: Json
+          slug?: string
+          updated_at?: string
+          vertical?: string
+          weight?: number
+        }
+        Relationships: []
       }
       threshold_upsell_products: {
         Row: {
