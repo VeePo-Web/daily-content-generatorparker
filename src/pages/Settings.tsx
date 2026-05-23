@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Check } from "lucide-react";
 import Nav from "../components/studio/Nav";
 
@@ -22,7 +22,7 @@ export default function Settings() {
   const [showAnthropicKey, setShowAnthropicKey] = useState(false);
   const [showResendKey, setShowResendKey] = useState(false);
   const [saved, setSaved] = useState(false);
-  const [brandConfig] = useState<BrandConfig | null>(() => {
+  const [brandConfig, setBrandConfig] = useState<BrandConfig | null>(() => {
     try {
       const raw = localStorage.getItem("veepo_brand_config");
       return raw ? JSON.parse(raw) : null;
@@ -30,6 +30,19 @@ export default function Settings() {
       return null;
     }
   });
+
+  useEffect(() => {
+    if (brandConfig) return;
+    fetch("/brands/veepo.json")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data) {
+          localStorage.setItem("veepo_brand_config", JSON.stringify(data));
+          setBrandConfig(data);
+        }
+      })
+      .catch(() => undefined);
+  }, [brandConfig]);
 
   const handleSave = () => {
     // In Vercel/browser context, show instructions since we can't write .env

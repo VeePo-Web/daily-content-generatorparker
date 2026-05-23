@@ -22,7 +22,7 @@ export default function Today() {
       const post = record.posts[optionNumber - 1];
       setRecord(getTodayRecord());
       setToast(
-        `Option ${optionNumber} selected — ${post.pillar} / ${post.niche}`
+        `Option ${optionNumber} selected — ${post.pillar} / ${post.niche}${typeof post.quality_score === "number" ? ` / ${post.quality_score}/10` : ""}`
       );
     },
     [record]

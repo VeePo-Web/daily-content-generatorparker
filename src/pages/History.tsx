@@ -53,7 +53,7 @@ export default function History() {
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">
               What's Working
             </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-4">
               <div>
                 <p className="text-xs text-slate-500 mb-1">Most selected pillar</p>
                 {insights.most_selected_pillar && (
@@ -95,6 +95,19 @@ export default function History() {
                     </span>
                   </div>
                 )}
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Avg selected score</p>
+                <p className="text-sm text-slate-200">
+                  {insights.average_selected_quality_score !== null
+                    ? `${insights.average_selected_quality_score}/10`
+                    : "—"}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {insights.best_hook_pattern
+                    ? `Best hook: ${insights.best_hook_pattern}`
+                    : "No hook pattern yet"}
+                </p>
               </div>
             </div>
 
@@ -195,9 +208,16 @@ export default function History() {
 
                 <div className="flex items-center gap-2 shrink-0">
                   {record.selected_option !== null ? (
-                    <span className="text-xs text-emerald-400 font-medium">
-                      Option {record.selected_option} ✓
-                    </span>
+                    <div className="text-right">
+                      <span className="block text-xs text-emerald-400 font-medium">
+                        Option {record.selected_option} ✓
+                      </span>
+                      {typeof record.posts[record.selected_option - 1]?.quality_score === "number" && (
+                        <span className="block text-[11px] text-slate-500">
+                          {record.posts[record.selected_option - 1].quality_score}/10
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-xs text-slate-600">Not reviewed</span>
                   )}

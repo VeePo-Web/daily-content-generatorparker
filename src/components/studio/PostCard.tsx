@@ -6,6 +6,7 @@ import {
   downloadTxt,
   buildLinkedinDownload,
   buildXDownload,
+  buildVisualDownload,
 } from "../../lib/posts";
 
 interface Props {
@@ -63,6 +64,13 @@ export default function PostCard({
     );
   };
 
+  const handleDownloadVisual = () => {
+    downloadTxt(
+      `veepo-${record.date}-visual-option${optionNumber}.txt`,
+      buildVisualDownload(record, index)
+    );
+  };
+
   return (
     <div
       className="rounded-xl border overflow-hidden transition-all duration-150"
@@ -87,6 +95,11 @@ export default function PostCard({
         >
           {post.pillar}
         </span>
+        {typeof post.quality_score === "number" && (
+          <span className="text-xs font-bold text-white/80">
+            {post.quality_score}/10
+          </span>
+        )}
         <span className="text-xs text-white/60 ml-auto">{post.niche}</span>
       </div>
 
@@ -124,6 +137,27 @@ export default function PostCard({
 
       {/* Post content */}
       <div className="px-4 pt-4">
+        {(post.why_this_might_win || post.quality_notes) && (
+          <div className="mb-4 rounded-lg border border-emerald-900/40 bg-emerald-950/25 p-3">
+            <div className="flex items-center justify-between gap-3 mb-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-emerald-400">
+                Why this one may win
+              </p>
+              {typeof post.quality_score === "number" && (
+                <span className="text-xs font-bold text-emerald-300">
+                  Score {post.quality_score}/10
+                </span>
+              )}
+            </div>
+            {post.why_this_might_win && (
+              <p className="text-sm text-emerald-50">{post.why_this_might_win}</p>
+            )}
+            {post.quality_notes && (
+              <p className="mt-1 text-xs text-emerald-300/80">{post.quality_notes}</p>
+            )}
+          </div>
+        )}
+
         <pre
           className="font-mono text-sm text-slate-200 whitespace-pre-wrap leading-relaxed"
           style={{ fontFamily: "'Inter', monospace" }}
@@ -169,6 +203,34 @@ export default function PostCard({
             <span className="text-xs text-emerald-400">💡 {post.buffer_tip}</span>
           </div>
         )}
+
+        {post.visual && (
+          <div className="mt-3 rounded-lg border border-slate-700 bg-slate-900/50 p-3">
+            <div className="mb-2 flex flex-wrap items-center gap-2">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                Visual idea
+              </p>
+              <span className="rounded bg-slate-700 px-2 py-0.5 text-[11px] font-semibold text-slate-300">
+                {post.visual.recommended_format}
+              </span>
+            </div>
+            <p className="text-sm text-slate-200">{post.visual.concept}</p>
+            <p className="mt-2 text-xs text-slate-400">
+              <span className="text-slate-500">Asset:</span> {post.visual.asset_needed}
+            </p>
+            <p className="mt-1 text-xs text-blue-300">
+              Overlay: {post.visual.overlay_text}
+            </p>
+            <details className="mt-2">
+              <summary className="cursor-pointer text-xs text-slate-500 hover:text-slate-300">
+                Nano Banana prompt
+              </summary>
+              <p className="mt-2 whitespace-pre-wrap rounded bg-slate-950 p-3 font-mono text-xs leading-relaxed text-slate-300">
+                {post.visual.nano_banana_prompt}
+              </p>
+            </details>
+          </div>
+        )}
       </div>
 
       {/* Actions */}
@@ -205,6 +267,16 @@ export default function PostCard({
           <Download size={13} />
           X
         </button>
+
+        {post.visual && (
+          <button
+            onClick={handleDownloadVisual}
+            className="flex items-center gap-1.5 px-3 py-2 rounded text-sm font-medium bg-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          >
+            <Download size={13} />
+            Visual Prompt
+          </button>
+        )}
       </div>
     </div>
   );

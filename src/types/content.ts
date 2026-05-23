@@ -4,6 +4,19 @@ export interface PostOption {
   pillar: Pillar;
   niche: string;
   hook: string;
+  quality_score?: number;
+  quality_notes?: string;
+  why_this_might_win?: string;
+  quality_rubric?: {
+    hook_strength: number;
+    persona_specificity: number;
+    sales_clarity: number;
+    emotional_pull: number;
+    platform_fit: number;
+    anti_generic_score: number;
+    cta_strength: number;
+    believability_trust: number;
+  };
   linkedin: {
     post: string;
     hashtags: string[];
@@ -12,6 +25,14 @@ export interface PostOption {
   x: {
     format: "single" | "thread";
     post: string | string[];
+  };
+  visual?: {
+    type: "screenshot" | "comparison" | "nano_banana_prompt" | "simple_text_overlay";
+    concept: string;
+    asset_needed: string;
+    nano_banana_prompt: string;
+    overlay_text: string;
+    recommended_format: "LinkedIn image" | "X image" | "Instagram Reel" | "Story";
   };
   buffer_tip: string;
 }
@@ -30,6 +51,9 @@ export interface SelectionHistory {
   date: string;
   selected_pillar: string;
   selected_niche: string;
+  selected_option: number;
+  selected_quality_score: number | null;
+  selected_hook: string;
   record_id: string;
 }
 
@@ -40,6 +64,8 @@ export interface LearningInsights {
   most_selected_pillar: string | null;
   least_selected_pillar: string | null;
   most_selected_niche: string | null;
+  average_selected_quality_score: number | null;
+  best_hook_pattern: string | null;
 }
 
 export const PILLAR_STYLES: Record<Pillar, { bg: string; text: string; label: string }> = {
