@@ -48,11 +48,14 @@ Deno.serve(async (req) => {
   try {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     let batchId: string | undefined = body?.batch_id;
+    const productId: string | undefined = body?.template_product_id;
 
     if (!batchId) {
-      const { data: latest } = await sb.from("generated_posts")
-        .select("batch_id, batch_date, created_at")
+      let q = sb.from("generated_posts")
+        .select("batch_id, batch_date, created_at, template_product_id")
         .order("created_at", { ascending: false }).limit(1);
+      if (productId) q = q.eq("template_product_id", productId);
+      const { data: latest } = await q;
       if (!latest?.length) throw new Error("No batches found");
       batchId = latest[0].batch_id;
     }

@@ -32,10 +32,15 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
-    // Pick product (weighted, alternating)
+    const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+    const overrideId: string | undefined = body?.template_product_id;
+
+    // Pick product (override, else random across enabled)
     const { data: products } = await sb.from("template_products").select("*").eq("enabled", true);
     if (!products?.length) throw new Error("No enabled template_products");
-    const product = products[Math.floor(Math.random() * products.length)];
+    const product = overrideId
+      ? (products.find((p: any) => p.id === overrideId) || products[0])
+      : products[Math.floor(Math.random() * products.length)];
 
     // Pick theme (least recently used, enabled, optionally matching product)
     const { data: themes } = await sb.from("post_themes").select("*")

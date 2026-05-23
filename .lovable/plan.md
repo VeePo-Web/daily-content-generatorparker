@@ -1,65 +1,51 @@
+## Bento Campaign UI for /sales
 
-# Remaining Build — Daily Sales Post Engine
+Refactor `src/pages/SalesPosts.tsx` into a two-level view: a bento grid of campaigns (one tile per `template_products` row), then drill into a campaign to see its history, themes, and actions.
 
-Schema, storage, assets, and themes are seeded. This plan covers the last three pieces.
+### Level 1 — Campaign Bento Grid (default view)
 
-## 1. Edge Functions (3)
+Asymmetric bento (Swedish editorial, rounded-none, sharp edges) with one tile per template product:
 
-**`generate-daily-posts`** (callable + cron)
-- Picks 1 of 2 `template_products` (alternating, weighted by `weight`)
-- Picks 1 theme from `post_themes` where `enabled=true`, ordered by `last_used_at NULLS FIRST` (rotates fairly)
-- Picks 3 matching `template_assets` (tag overlap with product vertical, `do_not_use=false`)
-- Calls Lovable AI (`google/gemini-3-flash-preview`) once with tool-calling to return structured JSON: `{ x: {...}, instagram: {...}, linkedin: {...} }`
-- Pre-scores each variant: hook strength (first 8 words contain pain/number/proof), CTA presence, length fit per platform → marks `is_winner=true` on top score
-- Inserts 3 rows in `generated_posts` sharing `batch_id`; bumps `post_themes.use_count` + `last_used_at`, `template_assets.use_count`
-
-**`send-daily-post-email`** (callable + cron, 5 min after generate)
-- Loads latest batch where no `post_send_log` row exists
-- Sends to `parker@veepo.ca` via Resend connector (from `pitch@veepo.ca`)
-- Plaintext-feeling HTML: winner copy + hero image + platform pill + "Copy to clipboard" link + two magic links (`?token=<swap_token>`) to swap to other variants
-- Logs to `post_send_log`
-
-**`swap-post-winner`** (public, no JWT)
-- GET with `?token=<uuid>` → flips winner in batch, returns simple confirmation HTML page
-
-## 2. Cron Jobs (pg_cron + pg_net)
-
-```
-6:55am MST (13:55 UTC) → generate-daily-posts
-7:00am MST (14:00 UTC) → send-daily-post-email
+```text
+┌───────────────────────────┬─────────────┐
+│  PHOTOGRAPHER             │  HOTEL      │
+│  $799 · $69/mo            │  $799·$69mo │
+│  [hero asset thumb]       │  [thumb]    │
+│  12 batches · last: 2h    │  3 batches  │
+│  [Generate] [Send]        │  [Gen][Send]│
+└───────────────────────────┴─────────────┘
 ```
 
-Scheduled via `supabase--insert` (not migration) since URL + anon key are project-specific.
+- Tile size weighted by `template_products.weight` (heaviest = col-span-2).
+- Background = first `template_assets.public_url` matching that product (cover, low opacity overlay).
+- Stats: total batches for that product, last batch timestamp, themes enabled count.
+- Per-tile buttons: **Generate** (passes `template_product_id`), **Send latest**.
+- Click anywhere else on tile → drill in.
 
-## 3. Admin UI — `/ops-portal/posts`
+### Level 2 — Campaign Detail (when a tile is clicked)
 
-Single page added to existing ops portal routes:
-- **History list** — last 30 batches, winner variant shown with platform pill, image thumb, score, swap to view siblings
-- **"Generate now" button** — invokes `generate-daily-posts` for testing (bypasses cron)
-- **"Send now" button** — invokes `send-daily-post-email`
-- **Theme manager (inline)** — list `post_themes`, toggle enabled, add new hook with category dropdown
+Header with ← Back, campaign name, one-liner, price.
+Three sections (same content as today but scoped to this `template_product_id`):
+1. **Action bar** — Generate / Send buttons for this campaign + status message.
+2. **Recent batches** — grouped by `batch_id`, 3 variants each, winner highlighted, copy + image preview.
+3. **Themes** — filtered to themes where `template_product_id = current OR template_product_id IS NULL` (global hooks), toggle enable.
 
-## 4. Test Flow
+### Data & wiring
 
-1. Click "Generate now" → verify 3 rows in `generated_posts`, 1 marked winner
-2. Click "Send now" → confirm Resend delivery to parker@veepo.ca
-3. Click magic link in email → verify winner swap
+- Single load: fetch `template_products` (enabled), `generated_posts` (last 200), `post_themes`, `template_assets` (first per product).
+- Group posts by `template_product_id` for tile stats; group by `batch_id` inside detail view.
+- Update `generate-daily-posts` invocation to accept `{ template_product_id }` in the body so a specific campaign generates. The function already exists — confirm it reads this from body and falls back to rotation when absent. If it doesn't, add a 5-line patch to honour the override.
+- `send-daily-post-email` similarly accepts `{ template_product_id }` to send latest winner for that campaign.
 
-## Technical
+### Styling
 
-- All functions: `verify_jwt = false` except admin endpoints rely on RLS via service-role
-- `swap-post-winner` uses service-role to bypass RLS (token is the auth)
-- Email HTML inline-styled, no external CSS
-- Cost: ~$0.03/day Gemini Flash + free Resend tier
+- Match existing dark `bg-slate-900` admin shell, but use `rounded-none`, sharp borders `border-slate-700`, hover `border-emerald-500/50` for tiles per project Core memory.
+- Framer Motion `editorialEase` on tile hover scale (1.0 → 1.01) and detail enter/exit (fade + 8px slide).
 
-## Files
+### Files
 
-- `supabase/functions/generate-daily-posts/index.ts`
-- `supabase/functions/send-daily-post-email/index.ts`
-- `supabase/functions/swap-post-winner/index.ts`
-- `supabase/config.toml` (add 3 function blocks)
-- `src/pages/ops-portal/Posts.tsx` (new)
-- `src/App.tsx` (add route)
-- Cron jobs via `supabase--insert`
+- `src/pages/SalesPosts.tsx` — rewrite into `<CampaignGrid />` + `<CampaignDetail />` (single file, two components, `useState` for selectedId).
+- `supabase/functions/generate-daily-posts/index.ts` — accept optional `template_product_id` override (only if not already supported).
+- `supabase/functions/send-daily-post-email/index.ts` — accept optional `template_product_id` override (only if not already supported).
 
-Ready to build on approval.
+No DB migration needed — schema already supports per-campaign queries.
