@@ -188,6 +188,45 @@ export type Database = {
         }
         Relationships: []
       }
+      brands: {
+        Row: {
+          created_at: string
+          current_campaign: string | null
+          id: string
+          name: string
+          niche: string | null
+          owner_id: string
+          pillar_weights: Json | null
+          slug: string
+          updated_at: string
+          voice_notes: string | null
+        }
+        Insert: {
+          created_at?: string
+          current_campaign?: string | null
+          id?: string
+          name: string
+          niche?: string | null
+          owner_id: string
+          pillar_weights?: Json | null
+          slug: string
+          updated_at?: string
+          voice_notes?: string | null
+        }
+        Update: {
+          created_at?: string
+          current_campaign?: string | null
+          id?: string
+          name?: string
+          niche?: string | null
+          owner_id?: string
+          pillar_weights?: Json | null
+          slug?: string
+          updated_at?: string
+          voice_notes?: string | null
+        }
+        Relationships: []
+      }
       bundle_discounts: {
         Row: {
           created_at: string | null
@@ -347,6 +386,104 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      content_plan: {
+        Row: {
+          angle: string | null
+          brand_id: string
+          created_at: string
+          day_number: number
+          hook: string
+          id: string
+          niche: string
+          owner_id: string
+          pillar: string
+          plan_date: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          angle?: string | null
+          brand_id: string
+          created_at?: string
+          day_number: number
+          hook: string
+          id?: string
+          niche: string
+          owner_id: string
+          pillar: string
+          plan_date: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          angle?: string | null
+          brand_id?: string
+          created_at?: string
+          day_number?: number
+          hook?: string
+          id?: string
+          niche?: string
+          owner_id?: string
+          pillar?: string
+          plan_date?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      content_records: {
+        Row: {
+          brand_id: string
+          created_at: string
+          id: string
+          images: Json
+          notes: string | null
+          options: Json
+          owner_id: string
+          posted_at: string | null
+          record_date: string
+          selected_index: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brand_id: string
+          created_at?: string
+          id?: string
+          images?: Json
+          notes?: string | null
+          options?: Json
+          owner_id: string
+          posted_at?: string | null
+          record_date?: string
+          selected_index?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          brand_id?: string
+          created_at?: string
+          id?: string
+          images?: Json
+          notes?: string | null
+          options?: Json
+          owner_id?: string
+          posted_at?: string | null
+          record_date?: string
+          selected_index?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_records_brand_id_fkey"
+            columns: ["brand_id"]
+            isOneToOne: false
+            referencedRelation: "brands"
             referencedColumns: ["id"]
           },
         ]
@@ -1187,6 +1324,44 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: []
+      }
+      selection_history: {
+        Row: {
+          hook: string | null
+          id: string
+          niche: string | null
+          owner_id: string
+          pillar: string | null
+          record_id: string
+          selected_at: string
+        }
+        Insert: {
+          hook?: string | null
+          id?: string
+          niche?: string | null
+          owner_id: string
+          pillar?: string | null
+          record_id: string
+          selected_at?: string
+        }
+        Update: {
+          hook?: string | null
+          id?: string
+          niche?: string | null
+          owner_id?: string
+          pillar?: string | null
+          record_id?: string
+          selected_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "selection_history_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "content_records"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       threshold_upsell_products: {
         Row: {
