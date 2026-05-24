@@ -50,26 +50,51 @@ Deno.serve(async (req) => {
     if (!themes?.length) throw new Error("No enabled post_themes");
     const theme = themes[0];
 
-    // Pick 6 assets (2 per variant)
+    // Pick template-screenshot assets ONLY (no lifestyle/scene/portrait).
+    // 7 per variant × 2 variants = 14 picks. Pool is small so we shuffle then
+    // top up by repeating least-used items to always hit 14.
+    const PER_VARIANT = 7;
+    const NEEDED = PER_VARIANT * 2;
+    const TEMPLATE_TYPES = ["mockup", "case-study", "gallery"];
     const { data: assets } = await sb.from("template_assets").select("*")
       .eq("do_not_use", false)
-      .or(`template_product_id.is.null,template_product_id.eq.${product.id}`)
+      .eq("template_product_id", product.id)
+      .in("asset_type", TEMPLATE_TYPES)
       .order("use_count", { ascending: true })
-      .limit(20);
-    const pickedAssets = (assets || []).sort(() => Math.random() - 0.5).slice(0, 6);
+      .limit(50);
+    const pool = (assets || []);
+    if (!pool.length) throw new Error(`No template assets for product ${product.name}`);
+    const shuffled = [...pool].sort(() => Math.random() - 0.5);
+    const pickedAssets: any[] = [];
+    while (pickedAssets.length < NEEDED) {
+      pickedAssets.push(shuffled[pickedAssets.length % shuffled.length]);
+    }
 
-    // Call Lovable AI
-    const systemPrompt = `You are Alex Hormozi writing high-converting B2B social posts for a web-design service called Veepo.
+    // Russell Brunson voice — Hook → Story → Offer, Epiphany Bridge.
+    const systemPrompt = `You are Russell Brunson writing daily story-driven social posts for Veepo.
+Frameworks: Hook → Story → Offer. Epiphany Bridge. "Who Not How."
+Voice: conversational, first-person, story-led, one clear epiphany per post, soft CTA.
+Banned: emojis, hashtags, "game-changer", "unlock", "leverage", "elevate", "in today's world", em-dashes used as drama.
+
 Product: ${product.name} (${product.vertical}) — CAD $${product.price_one_time} once + $${product.price_monthly}/mo.
-Offer: Live in 7 days. Pay $0 until you love it. If no paid client books in 30 days, full refund + keep the site.
-Target: ${product.ideal_customer || "owner-operators $80K-$400K/yr"}.
-Avoid: ${product.poison_list || "agencies, MLM, cheapness shoppers"}.
+Offer: Live in 7 days. $0 until you love it. No paid client booked in 30 days → full refund + you keep the site.
+Ideal customer: ${product.ideal_customer || "owner-operators $80K–$400K/yr"}.
+Avoid attracting: ${product.poison_list || "agencies, MLM, cheapness shoppers"}.
 
-Theme hook: "${theme.hook}" (category: ${theme.category})
+Today's story seed: "${theme.hook}" (category: ${theme.category})
 
-Write 2 platform-native variants — one for X, one for LinkedIn. NO emojis, NO hashtags. Hard numbers. Specific. Punchy. No corporate fluff. Match the platform's native voice:
-- X: single tweet, ≤280 chars, front-loaded hook, one idea, no thread.
-- LinkedIn: 600–1800 chars, 3–5 short paragraphs, story format, specific numbers, single CTA at end.`;
+Write 2 variants:
+
+X (≤280 chars): single curiosity hook + one-line story tease + soft CTA ("reply 'site'" or "DM 'site'"). One idea. No thread.
+
+LinkedIn (600–1800 chars, 4–7 short paragraphs, blank line between each):
+  1. HOOK — pattern interrupt that names a false belief the reader holds.
+  2. BACKSTORY — "I used to think… until…" personal frame.
+  3. WALL — the specific moment it broke (one scene, one detail).
+  4. EPIPHANY — the new belief, said plainly.
+  5. PROOF — one concrete number, name, or before/after.
+  6. OFFER — the 7-day / $0-until-you-love-it pitch in plain English.
+  7. CTA — "DM 'site' and I'll send the 90-second walkthrough."`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

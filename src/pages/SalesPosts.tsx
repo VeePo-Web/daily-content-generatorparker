@@ -231,7 +231,15 @@ function CampaignDetail({ product, posts, themes, busy, onBack, onGenerate, onSe
                           <span className="uppercase font-bold text-slate-300">{p.platform}</span>
                           <span className="text-slate-500">{p.score}</span>
                         </div>
-                        {p.image_urls?.[0] && <img src={p.image_urls[0]} className="w-full h-24 object-cover mb-2" />}
+                        {p.image_urls?.length > 0 && (
+                          <div className="grid grid-cols-4 gap-1 mb-2">
+                            {p.image_urls.slice(0, 8).map((u, i) => (
+                              <a key={i} href={u} target="_blank" rel="noreferrer" className="block">
+                                <img src={u} className="w-full h-16 object-cover border border-slate-700 hover:border-emerald-500" />
+                              </a>
+                            ))}
+                          </div>
+                        )}
                         <pre className="text-xs whitespace-pre-wrap font-sans text-slate-200 max-h-48 overflow-y-auto">{p.copy}</pre>
                       </div>
                     ))}
