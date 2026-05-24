@@ -9,7 +9,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-type Variant = { platform: "x" | "instagram" | "linkedin"; copy: string };
+type Variant = { platform: "x" | "linkedin"; copy: string };
 
 function scoreVariant(v: Variant): { score: number; breakdown: Record<string, number> } {
   const c = v.copy;
@@ -19,8 +19,7 @@ function scoreVariant(v: Variant): { score: number; breakdown: Record<string, nu
   const hasCTA = /(dm|comment|reply|link|book|click|message)/i.test(c) ? 15 : 0;
   const lengthFit =
     v.platform === "x" ? (c.length <= 280 ? 25 : Math.max(0, 25 - (c.length - 280) / 4))
-    : v.platform === "instagram" ? (c.length >= 200 && c.length <= 1500 ? 25 : 10)
-    : (c.length >= 400 && c.length <= 2500 ? 25 : 10);
+    : (c.length >= 600 && c.length <= 1800 ? 25 : 10);
   const hookStrength = c.startsWith('"') || /^[A-Z][a-z]+ \w+/.test(c) ? 15 : 5;
   const score = hasNumber + hasPain + hasCTA + lengthFit + hookStrength;
   return { score, breakdown: { hasNumber, hasPain, hasCTA, lengthFit, hookStrength } };
@@ -68,7 +67,9 @@ Avoid: ${product.poison_list || "agencies, MLM, cheapness shoppers"}.
 
 Theme hook: "${theme.hook}" (category: ${theme.category})
 
-Write 3 platform-native variants. NO emojis except sparingly in IG. Hard numbers. Specific. Punchy. No corporate fluff.`;
+Write 2 platform-native variants — one for X, one for LinkedIn. NO emojis, NO hashtags. Hard numbers. Specific. Punchy. No corporate fluff. Match the platform's native voice:
+- X: single tweet, ≤280 chars, front-loaded hook, one idea, no thread.
+- LinkedIn: 600–1800 chars, 3–5 short paragraphs, story format, specific numbers, single CTA at end.`;
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -77,21 +78,20 @@ Write 3 platform-native variants. NO emojis except sparingly in IG. Hard numbers
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Write 3 variants of a post about: ${theme.hook}` },
+          { role: "user", content: `Write 2 variants (X + LinkedIn) of a post about: ${theme.hook}` },
         ],
         tools: [{
           type: "function",
           function: {
             name: "emit_posts",
-            description: "Emit the 3 platform variants",
+            description: "Emit the 2 platform variants",
             parameters: {
               type: "object",
               properties: {
                 x: { type: "string", description: "Single tweet, ≤280 chars, punchy hook" },
-                instagram: { type: "string", description: "IG caption, 200-1500 chars, hook + value + CTA" },
-                linkedin: { type: "string", description: "LinkedIn story-format post, 400-2500 chars" },
+                linkedin: { type: "string", description: "LinkedIn story post, 600-1800 chars, 3-5 short paragraphs" },
               },
-              required: ["x", "instagram", "linkedin"],
+              required: ["x", "linkedin"],
               additionalProperties: false,
             },
           },
@@ -110,17 +110,15 @@ Write 3 platform-native variants. NO emojis except sparingly in IG. Hard numbers
     const batchId = crypto.randomUUID();
     const variants: Variant[] = [
       { platform: "x", copy: args.x },
-      { platform: "instagram", copy: args.instagram },
       { platform: "linkedin", copy: args.linkedin },
     ];
 
-    // Score & pick winner
+    // Score both (both are winners — one email per platform)
     const scored = variants.map((v) => ({ v, ...scoreVariant(v) }));
-    const winnerIdx = scored.reduce((best, s, i, arr) => (s.score > arr[best].score ? i : best), 0);
 
-    // Assign 2 assets per variant
+    // Assign 3 assets per variant
     const rows = scored.map((s, i) => {
-      const slice = pickedAssets.slice(i * 2, i * 2 + 2);
+      const slice = pickedAssets.slice(i * 3, i * 3 + 3);
       return {
         batch_id: batchId,
         template_product_id: product.id,
@@ -129,7 +127,7 @@ Write 3 platform-native variants. NO emojis except sparingly in IG. Hard numbers
         copy: s.v.copy,
         image_urls: slice.map((a) => a.public_url),
         image_asset_ids: slice.map((a) => a.id),
-        is_winner: i === winnerIdx,
+        is_winner: true,
         score: s.score,
         score_breakdown: s.breakdown,
       };
@@ -148,7 +146,7 @@ Write 3 platform-native variants. NO emojis except sparingly in IG. Hard numbers
       await sb.from("template_assets").update({ use_count: (a.use_count || 0) + 1 }).eq("id", a.id);
     }
 
-    return new Response(JSON.stringify({ batch_id: batchId, product: product.name, theme: theme.hook, winner: variants[winnerIdx].platform }), {
+    return new Response(JSON.stringify({ batch_id: batchId, product: product.name, theme: theme.hook, platforms: variants.map(v => v.platform) }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
