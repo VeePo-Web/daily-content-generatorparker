@@ -34,13 +34,29 @@ async function discoverSections(baseUrl: string): Promise<Section[]> {
   // home
   sections.set("home", { label: "home", url: baseUrl, anchor: null });
 
-  // 1. Fetch raw HTML of home page
+  // 1. Fetch rendered HTML + links via Firecrawl (these sites are SPAs)
   let html = "";
+  let fcLinks: string[] = [];
   try {
-    const r = await fetch(baseUrl, { headers: { "User-Agent": "Mozilla/5.0 LovableBot" } });
-    if (r.ok) html = await r.text();
+    const r = await fetch(`${FC}/scrape`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: baseUrl,
+        formats: ["html", "links"],
+        onlyMainContent: false,
+        waitFor: 2500,
+      }),
+    });
+    const j = await r.json();
+    if (r.ok) {
+      html = j.data?.html || j.html || "";
+      fcLinks = j.data?.links || j.links || [];
+    } else {
+      console.warn("rendered html fetch failed", r.status, JSON.stringify(j).slice(0, 200));
+    }
   } catch (e) {
-    console.warn("home fetch failed", (e as Error).message);
+    console.warn("rendered fetch failed", (e as Error).message);
   }
 
   if (html) {
@@ -62,22 +78,29 @@ async function discoverSections(baseUrl: string): Promise<Section[]> {
     }
   }
 
-  // 2. Map discovers sub-routes
-  try {
-    const mapped = await fcMap(baseUrl);
-    for (const u of mapped) {
+  // 2. Map + the rendered-link list discover sub-routes
+  let mapped: string[] = [];
+  try { mapped = await fcMap(baseUrl); } catch (e) { console.warn("map failed", (e as Error).message); }
+  const allRouteCandidates = Array.from(new Set([...mapped, ...fcLinks]));
+  for (const u of allRouteCandidates) {
       try {
         const parsed = new URL(u);
         if (parsed.origin !== baseOrigin) continue;
+        // anchor-only links on the home page
+        if (parsed.hash && (parsed.pathname === "" || parsed.pathname === "/")) {
+          const id = parsed.hash.slice(1);
+          if (!id || ["root", "app", "__next"].includes(id)) continue;
+          const label = id.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const key = `anchor:${label}`;
+          if (!sections.has(key)) sections.set(key, { label, url: baseUrl, anchor: id });
+          continue;
+        }
         const path = parsed.pathname.replace(/\/$/, "");
         if (path === "" || path === "/") continue;
         const label = path.split("/").filter(Boolean).join("-").toLowerCase();
         const key = `route:${label}`;
-        if (!sections.has(key)) sections.set(key, { label, url: parsed.toString(), anchor: null });
+        if (!sections.has(key)) sections.set(key, { label, url: `${parsed.origin}${parsed.pathname}`, anchor: null });
       } catch { /* ignore */ }
-    }
-  } catch (e) {
-    console.warn("map failed", (e as Error).message);
   }
 
   return [...sections.values()];
