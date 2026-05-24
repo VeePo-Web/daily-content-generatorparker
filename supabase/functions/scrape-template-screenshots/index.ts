@@ -11,6 +11,8 @@ const FIRECRAWL_API_KEY = Deno.env.get("FIRECRAWL_API_KEY")!;
 const BUCKET = "template-screenshots";
 const FC = "https://api.firecrawl.dev/v2";
 
+type Section = { label: string; url: string; anchor: string | null };
+
 async function fcMap(url: string): Promise<string[]> {
   const r = await fetch(`${FC}/map`, {
     method: "POST",
@@ -23,29 +25,113 @@ async function fcMap(url: string): Promise<string[]> {
   return links.map((l: any) => (typeof l === "string" ? l : l.url)).filter(Boolean);
 }
 
-type Shot = { url: string; viewport: "desktop" | "mobile"; kind: string };
+// Enumerate logical sections of the site by parsing the home page HTML for
+// nav anchors + section ids, then merging with sub-routes from /map.
+async function discoverSections(baseUrl: string): Promise<Section[]> {
+  const sections = new Map<string, Section>();
+  const baseOrigin = new URL(baseUrl).origin;
+
+  // home
+  sections.set("home", { label: "home", url: baseUrl, anchor: null });
+
+  // 1. Fetch rendered HTML + links via Firecrawl (these sites are SPAs)
+  let html = "";
+  let fcLinks: string[] = [];
+  try {
+    const r = await fetch(`${FC}/scrape`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${FIRECRAWL_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: baseUrl,
+        formats: ["html", "links"],
+        onlyMainContent: false,
+        waitFor: 2500,
+      }),
+    });
+    const j = await r.json();
+    if (r.ok) {
+      html = j.data?.html || j.html || "";
+      fcLinks = j.data?.links || j.links || [];
+    } else {
+      console.warn("rendered html fetch failed", r.status, JSON.stringify(j).slice(0, 200));
+    }
+  } catch (e) {
+    console.warn("rendered fetch failed", (e as Error).message);
+  }
+
+  if (html) {
+    // collect all id="..." on section/div/main/header/footer elements
+    const idRe = /<(?:section|div|main|header|footer|article)\b[^>]*\bid=["']([a-zA-Z][\w-]{1,40})["']/gi;
+    let m: RegExpExecArray | null;
+    const ids = new Set<string>();
+    while ((m = idRe.exec(html))) ids.add(m[1]);
+
+    // collect anchor hrefs (#foo) from <a>
+    const aRe = /<a\b[^>]*\bhref=["']#([a-zA-Z][\w-]{1,40})["']/gi;
+    while ((m = aRe.exec(html))) ids.add(m[1]);
+
+    for (const id of ids) {
+      if (["root", "app", "__next"].includes(id)) continue;
+      const label = id.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+      const key = `anchor:${label}`;
+      if (!sections.has(key)) sections.set(key, { label, url: baseUrl, anchor: id });
+    }
+  }
+
+  // 2. Map + the rendered-link list discover sub-routes
+  let mapped: string[] = [];
+  try { mapped = await fcMap(baseUrl); } catch (e) { console.warn("map failed", (e as Error).message); }
+  const allRouteCandidates = Array.from(new Set([...mapped, ...fcLinks]));
+  for (const u of allRouteCandidates) {
+      try {
+        const parsed = new URL(u);
+        if (parsed.origin !== baseOrigin) continue;
+        // anchor-only links on the home page
+        if (parsed.hash && (parsed.pathname === "" || parsed.pathname === "/")) {
+          const id = parsed.hash.slice(1);
+          if (!id || ["root", "app", "__next"].includes(id)) continue;
+          const label = id.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+          const key = `anchor:${label}`;
+          if (!sections.has(key)) sections.set(key, { label, url: baseUrl, anchor: id });
+          continue;
+        }
+        const path = parsed.pathname.replace(/\/$/, "");
+        if (path === "" || path === "/") continue;
+        const label = path.split("/").filter(Boolean).join("-").toLowerCase();
+        const key = `route:${label}`;
+        if (!sections.has(key)) sections.set(key, { label, url: `${parsed.origin}${parsed.pathname}`, anchor: null });
+      } catch { /* ignore */ }
+  }
+
+  return [...sections.values()];
+}
 
 async function fcScreenshot(opts: {
   url: string;
   mobile: boolean;
   fullPage: boolean;
-  scrollY?: number;
+  anchor?: string | null;
 }): Promise<string | null> {
   const body: any = {
-    url: opts.url,
-    formats: [{ type: "screenshot", fullPage: opts.fullPage, viewport: opts.mobile
-      ? { width: 390, height: 844 }
-      : { width: 1440, height: 900 } }],
+    url: opts.anchor ? `${opts.url}#${opts.anchor}` : opts.url,
+    formats: [{
+      type: "screenshot",
+      fullPage: opts.fullPage,
+      viewport: opts.mobile ? { width: 390, height: 844 } : { width: 1440, height: 900 },
+    }],
     onlyMainContent: false,
     waitFor: 2000,
     blockAds: true,
   };
-  if (opts.scrollY && opts.scrollY > 0) {
+  // For focused viewport, scroll the anchor into view before snapping.
+  if (!opts.fullPage && opts.anchor) {
     body.actions = [
+      { type: "wait", milliseconds: 1200 },
+      { type: "scroll", direction: "down", selector: `#${opts.anchor}` },
       { type: "wait", milliseconds: 800 },
-      { type: "scroll", direction: "down", amount: opts.scrollY },
-      { type: "wait", milliseconds: 600 },
     ];
+  } else if (!opts.fullPage) {
+    body.actions = [{ type: "wait", milliseconds: 1500 }];
   }
   const r = await fetch(`${FC}/scrape`, {
     method: "POST",
@@ -54,12 +140,10 @@ async function fcScreenshot(opts: {
   });
   const j = await r.json();
   if (!r.ok) {
-    console.warn(`scrape fail ${opts.url}`, r.status, JSON.stringify(j).slice(0, 300));
+    console.warn(`scrape fail ${body.url}`, r.status, JSON.stringify(j).slice(0, 300));
     return null;
   }
-  // v2 returns { data: { screenshot: "https://..." } }
-  const shot = j.data?.screenshot || j.screenshot || j.data?.screenshotUrl;
-  return shot || null;
+  return j.data?.screenshot || j.screenshot || j.data?.screenshotUrl || null;
 }
 
 async function downloadAndUpload(
@@ -92,86 +176,75 @@ Deno.serve(async (req) => {
   const sb = createClient(SUPABASE_URL, SERVICE_KEY);
 
   try {
-    const { template_product_id, base_url, target = 100, wipe_storage = false } = await req.json();
+    const { template_product_id, base_url, wipe_storage = false } = await req.json();
     if (!template_product_id || !base_url) throw new Error("template_product_id + base_url required");
 
     const { data: product } = await sb.from("template_products").select("*").eq("id", template_product_id).maybeSingle();
     if (!product) throw new Error("product not found");
     const slug = product.vertical || "template";
 
-    // Optional storage wipe for this product's folder
     if (wipe_storage) {
       const { data: existing } = await sb.storage.from(BUCKET).list(slug, { limit: 1000 });
       if (existing?.length) {
         await sb.storage.from(BUCKET).remove(existing.map((f: any) => `${slug}/${f.name}`));
       }
+      await sb.from("template_assets").delete().eq("template_product_id", template_product_id);
     }
 
-    // 1. Discover routes
-    let urls = await fcMap(base_url);
-    if (!urls.length) urls = [base_url];
-    // Always include base_url first, dedupe, cap
-    urls = Array.from(new Set([base_url, ...urls])).slice(0, 12);
-    console.log(`Discovered ${urls.length} URLs for ${base_url}`);
-
-    // 2. Build shot plan. Many of these sites are single-page, so for each URL
-    // we capture both viewports across many scroll positions to fill the quota.
-    const DESKTOP_SCROLLS = Array.from({ length: 25 }, (_, i) => i * 700); // 0..16800
-    const MOBILE_SCROLLS = Array.from({ length: 25 }, (_, i) => i * 650);  // 0..15600
-    const plan: Array<{ url: string; mobile: boolean; fullPage: boolean; scrollY: number; tag: string }> = [];
-    for (const url of urls) {
-      for (const mobile of [false, true]) {
-        plan.push({ url, mobile, fullPage: true, scrollY: 0, tag: mobile ? "mobile-full" : "desktop-full" });
-        const scrolls = mobile ? MOBILE_SCROLLS : DESKTOP_SCROLLS;
-        for (const s of scrolls) {
-          plan.push({ url, mobile, fullPage: false, scrollY: s, tag: mobile ? `mobile-vp-${s}` : `desktop-vp-${s}` });
-        }
-      }
-    }
-
-    // 3. Execute up to `target` shots, with limited parallelism
-    const CONCURRENCY = 6;
-    const results: Shot[] = [];
-    const rows: any[] = [];
-    let cursor = 0;
-    const limit = Math.min(target, plan.length);
+    // Run discovery + screenshotting entirely in the background
+    type Job = { section: Section; mobile: boolean; fullPage: boolean };
+    const state = { plan: [] as Job[], cursor: 0, rows: [] as any[] };
 
     async function worker() {
       while (true) {
-        const i = cursor++;
-        if (i >= limit) return;
-        const job = plan[i];
-        const shotUrl = await fcScreenshot(job);
+        const i = state.cursor++;
+        if (i >= state.plan.length) return;
+        const job = state.plan[i];
+        const kind = job.fullPage ? "full" : "focus";
+        const vp = job.mobile ? "mobile" : "desktop";
+        const shotUrl = await fcScreenshot({
+          url: job.section.url,
+          mobile: job.mobile,
+          fullPage: job.fullPage,
+          anchor: job.section.anchor,
+        });
         if (!shotUrl) continue;
         const id = crypto.randomUUID();
         const path = `${slug}/${id}.png`;
         const publicUrl = await downloadAndUpload(sb, shotUrl, path);
         if (!publicUrl) continue;
-        rows.push({
+        state.rows.push({
           template_product_id,
           asset_type: "gallery",
           storage_path: path,
           public_url: publicUrl,
-          caption: `${job.tag} — ${job.url}`,
-          tags: [job.tag, job.mobile ? "mobile" : "desktop", "template-screenshot"],
-          orientation: job.mobile ? "portrait" : "landscape",
+          caption: `${job.section.label} — ${vp} — ${kind}`,
+          tags: [job.section.label, vp, kind, "template-screenshot"],
+          orientation: (job.mobile || job.fullPage) ? "portrait" : "landscape",
           do_not_use: false,
           use_count: 0,
         });
-        results.push({ url: job.url, viewport: job.mobile ? "mobile" : "desktop", kind: job.tag });
       }
     }
-    // Run in background so the HTTP request returns immediately.
+
+    const CONCURRENCY = 5;
     const work = (async () => {
-      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-      if (rows.length) {
-        for (let i = 0; i < rows.length; i += 50) {
-          const chunk = rows.slice(i, i + 50);
-          const { error } = await sb.from("template_assets").insert(chunk);
-          if (error) console.warn("insert error", error.message);
+      const sections = await discoverSections(base_url);
+      console.log(`Discovered ${sections.length} sections for ${base_url}:`, sections.map((s) => s.label));
+      for (const section of sections) {
+        for (const mobile of [false, true]) {
+          state.plan.push({ section, mobile, fullPage: true });
+          state.plan.push({ section, mobile, fullPage: false });
         }
       }
-      console.log(`DONE ${product.name}: saved ${rows.length}/${limit}`);
+      console.log(`Planned ${state.plan.length} shots`);
+      await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
+      for (let i = 0; i < state.rows.length; i += 50) {
+        const chunk = state.rows.slice(i, i + 50);
+        const { error } = await sb.from("template_assets").insert(chunk);
+        if (error) console.warn("insert error", error.message);
+      }
+      console.log(`DONE ${product.name}: saved ${state.rows.length}/${state.plan.length}`);
     })();
     // @ts-ignore EdgeRuntime is available in supabase edge runtime
     if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
@@ -179,8 +252,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       product: product.name,
       base_url,
-      discovered_urls: urls.length,
-      planned: limit,
       status: "running_in_background",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
