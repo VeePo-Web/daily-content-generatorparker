@@ -191,31 +191,15 @@ Deno.serve(async (req) => {
       await sb.from("template_assets").delete().eq("template_product_id", template_product_id);
     }
 
-    // 1. Enumerate logical sections
-    const sections = await discoverSections(base_url);
-    console.log(`Discovered ${sections.length} sections for ${base_url}:`, sections.map((s) => s.label));
-
-    // 2. Build shot plan: per section × 2 viewports × 2 shot-types
+    // Run discovery + screenshotting entirely in the background
     type Job = { section: Section; mobile: boolean; fullPage: boolean };
-    const plan: Job[] = [];
-    for (const section of sections) {
-      for (const mobile of [false, true]) {
-        plan.push({ section, mobile, fullPage: true });
-        plan.push({ section, mobile, fullPage: false });
-      }
-    }
-    console.log(`Planned ${plan.length} shots`);
-
-    // 3. Execute with limited parallelism in background
-    const CONCURRENCY = 5;
-    let cursor = 0;
-    const rows: any[] = [];
+    const state = { plan: [] as Job[], cursor: 0, rows: [] as any[] };
 
     async function worker() {
       while (true) {
-        const i = cursor++;
-        if (i >= plan.length) return;
-        const job = plan[i];
+        const i = state.cursor++;
+        if (i >= state.plan.length) return;
+        const job = state.plan[i];
         const kind = job.fullPage ? "full" : "focus";
         const vp = job.mobile ? "mobile" : "desktop";
         const shotUrl = await fcScreenshot({
@@ -229,7 +213,7 @@ Deno.serve(async (req) => {
         const path = `${slug}/${id}.png`;
         const publicUrl = await downloadAndUpload(sb, shotUrl, path);
         if (!publicUrl) continue;
-        rows.push({
+        state.rows.push({
           template_product_id,
           asset_type: "gallery",
           storage_path: path,
@@ -243,14 +227,24 @@ Deno.serve(async (req) => {
       }
     }
 
+    const CONCURRENCY = 5;
     const work = (async () => {
+      const sections = await discoverSections(base_url);
+      console.log(`Discovered ${sections.length} sections for ${base_url}:`, sections.map((s) => s.label));
+      for (const section of sections) {
+        for (const mobile of [false, true]) {
+          state.plan.push({ section, mobile, fullPage: true });
+          state.plan.push({ section, mobile, fullPage: false });
+        }
+      }
+      console.log(`Planned ${state.plan.length} shots`);
       await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
-      for (let i = 0; i < rows.length; i += 50) {
-        const chunk = rows.slice(i, i + 50);
+      for (let i = 0; i < state.rows.length; i += 50) {
+        const chunk = state.rows.slice(i, i + 50);
         const { error } = await sb.from("template_assets").insert(chunk);
         if (error) console.warn("insert error", error.message);
       }
-      console.log(`DONE ${product.name}: saved ${rows.length}/${plan.length}`);
+      console.log(`DONE ${product.name}: saved ${state.rows.length}/${state.plan.length}`);
     })();
     // @ts-ignore EdgeRuntime is available in supabase edge runtime
     if (typeof EdgeRuntime !== "undefined") EdgeRuntime.waitUntil(work);
@@ -258,8 +252,6 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       product: product.name,
       base_url,
-      sections: sections.map((s) => ({ label: s.label, url: s.url, anchor: s.anchor })),
-      planned: plan.length,
       status: "running_in_background",
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (e) {
