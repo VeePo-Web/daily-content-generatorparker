@@ -22,8 +22,23 @@ function buildEmail(opts: {
 }) {
   const { product, theme, winner, others, swapBase } = opts;
   const platformLabel: Record<string, string> = { x: "X / Twitter", instagram: "Instagram", linkedin: "LinkedIn" };
-  const heroImg = winner.image_urls?.[0] || "";
-  const escaped = winner.copy.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+  const escaped = (winner.copy || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
+  const imgs: string[] = winner.image_urls || [];
+  const total = imgs.length;
+
+  const imgBlocks = imgs.map((url, i) => {
+    const n = String(i + 1).padStart(2, "0");
+    const t = String(total).padStart(2, "0");
+    return `<div style="margin-bottom:20px;">
+      <div style="font-size:11px;color:#888;letter-spacing:1px;margin-bottom:6px;font-family:monospace;">${n} / ${t}</div>
+      <img src="${url}" alt="" style="width:100%;max-width:600px;display:block;border:1px solid #eee;">
+      <div style="margin-top:6px;">
+        <a href="${url}" download style="color:#4CAF50;font-size:12px;text-decoration:underline;">Download image ${n}</a>
+      </div>
+    </div>`;
+  }).join("");
+
+  const allUrls = imgs.map((u, i) => `${String(i + 1).padStart(2, "0")}. ${u}`).join("\n");
 
   const swapLinks = others.map((o) =>
     `<a href="${swapBase}?token=${o.swap_token}" style="color:#4CAF50;text-decoration:underline;">Swap to ${platformLabel[o.platform]} (score ${o.score})</a>`
@@ -32,10 +47,18 @@ function buildEmail(opts: {
   return `<!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">
 <p style="font-size:13px;color:#666;margin:0 0 4px;">${product} · Theme: <em>${theme}</em></p>
-<h2 style="font-size:20px;margin:0 0 16px;">Today's winner: ${platformLabel[winner.platform]} (score ${winner.score})</h2>
-${heroImg ? `<img src="${heroImg}" alt="" style="width:100%;max-width:600px;border:1px solid #eee;margin-bottom:16px;">` : ""}
-<div style="background:#f7f7f5;border-left:3px solid #4CAF50;padding:16px;font-size:15px;line-height:1.5;white-space:pre-wrap;">${escaped}</div>
-<p style="margin-top:20px;font-size:13px;color:#555;">${swapLinks}</p>
+<h2 style="font-size:20px;margin:0 0 16px;">Today's post · ${platformLabel[winner.platform]} (score ${winner.score})</h2>
+
+<div style="background:#f7f7f5;border-left:3px solid #4CAF50;padding:16px;font-size:15px;line-height:1.55;white-space:pre-wrap;margin-bottom:24px;">${escaped}</div>
+
+<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin:0 0 12px;">${total} template screenshots — tap & hold (mobile) or right-click to save</h3>
+${imgBlocks}
+
+<hr style="border:0;border-top:1px solid #eee;margin:24px 0;">
+<p style="font-size:12px;color:#666;margin:0 0 6px;"><strong>All image URLs:</strong></p>
+<pre style="font-size:11px;color:#555;background:#fafaf8;padding:10px;border:1px solid #eee;white-space:pre-wrap;word-break:break-all;">${allUrls}</pre>
+
+${swapLinks ? `<p style="margin-top:20px;font-size:13px;color:#555;">${swapLinks}</p>` : ""}
 <hr style="border:0;border-top:1px solid #eee;margin:24px 0;">
 <p style="font-size:11px;color:#999;">Veepo · daily pitch engine</p>
 </body></html>`;
