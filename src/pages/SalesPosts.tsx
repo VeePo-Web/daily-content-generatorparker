@@ -217,15 +217,14 @@ function CampaignDetail({ product, posts, themes, busy, onBack, onGenerate, onSe
         ) : (
           <div className="space-y-4">
             {batches.map(([batchId, list]) => {
-              const winner = list.find(p => p.is_winner) || list[0];
+              const winner = list[0];
               return (
                 <div key={batchId} className="border border-slate-700 overflow-hidden bg-slate-800/40">
                   <div className="px-4 py-2 bg-slate-800 flex items-center gap-3 text-xs text-slate-400">
                     <span>{new Date(winner.created_at).toLocaleString()}</span>
-                    <span className="px-2 py-0.5 bg-emerald-900/50 text-emerald-300 uppercase font-bold">{winner.platform}</span>
-                    <span>score {winner.score}</span>
+                    <span className="px-2 py-0.5 bg-emerald-900/50 text-emerald-300 uppercase font-bold">{list.map(p => p.platform).join(" + ")}</span>
                   </div>
-                  <div className="p-4 grid md:grid-cols-3 gap-3">
+                  <div className="p-4 grid md:grid-cols-2 gap-3">
                     {list.map(p => (
                       <div key={p.id} className={`border p-3 ${p.is_winner ? "border-emerald-500 bg-emerald-950/20" : "border-slate-700"}`}>
                         <div className="flex justify-between text-xs mb-2">

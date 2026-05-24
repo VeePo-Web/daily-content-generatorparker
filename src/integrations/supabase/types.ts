@@ -1030,6 +1030,7 @@ export type Database = {
           batch_id: string
           error: string | null
           id: string
+          platform: string | null
           recipient_email: string
           resend_id: string | null
           sent_at: string
@@ -1040,6 +1041,7 @@ export type Database = {
           batch_id: string
           error?: string | null
           id?: string
+          platform?: string | null
           recipient_email: string
           resend_id?: string | null
           sent_at?: string
@@ -1050,6 +1052,7 @@ export type Database = {
           batch_id?: string
           error?: string | null
           id?: string
+          platform?: string | null
           recipient_email?: string
           resend_id?: string | null
           sent_at?: string

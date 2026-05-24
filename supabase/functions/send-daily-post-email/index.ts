@@ -49,6 +49,7 @@ Deno.serve(async (req) => {
     const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
     let batchId: string | undefined = body?.batch_id;
     const productId: string | undefined = body?.template_product_id;
+    const onlyPlatform: string | undefined = body?.platform; // "x" | "linkedin"
 
     if (!batchId) {
       let q = sb.from("generated_posts")
@@ -60,54 +61,75 @@ Deno.serve(async (req) => {
       batchId = latest[0].batch_id;
     }
 
-    // Skip if already sent
-    const { data: already } = await sb.from("post_send_log").select("id").eq("batch_id", batchId).limit(1);
-    if (already?.length) {
-      return new Response(JSON.stringify({ skipped: true, batch_id: batchId }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
     const { data: posts } = await sb.from("generated_posts").select("*").eq("batch_id", batchId);
     if (!posts?.length) throw new Error(`No posts for batch ${batchId}`);
-    const winner = posts.find((p: any) => p.is_winner) || posts[0];
-    const others = posts.filter((p: any) => p.id !== winner.id);
 
-    // Load product + theme labels
-    const { data: product } = await sb.from("template_products").select("name").eq("id", winner.template_product_id).maybeSingle();
-    const { data: theme } = await sb.from("post_themes").select("hook").eq("id", winner.theme_id).maybeSingle();
-
+    // Load product + theme once
+    const firstPost = posts[0];
+    const { data: product } = await sb.from("template_products").select("name").eq("id", firstPost.template_product_id).maybeSingle();
+    const { data: theme } = await sb.from("post_themes").select("hook").eq("id", firstPost.theme_id).maybeSingle();
     const swapBase = `${SUPABASE_URL}/functions/v1/swap-post-winner`;
-    const html = buildEmail({
-      product: product?.name || "Template",
-      theme: theme?.hook || "—",
-      winner, others, swapBase,
-    });
-
     const platformLabel: Record<string, string> = { x: "X", instagram: "IG", linkedin: "LinkedIn" };
-    const subject = `[${platformLabel[winner.platform]}] ${winner.copy.split("\n")[0].slice(0, 70)}`;
 
-    const resendResp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "X-Connection-Api-Key": RESEND_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from: FROM, to: [RECIPIENT], subject, html }),
-    });
-    const resendJson = await resendResp.json();
-    if (!resendResp.ok) throw new Error(`Resend ${resendResp.status}: ${JSON.stringify(resendJson)}`);
+    const targets = onlyPlatform
+      ? posts.filter((p: any) => p.platform === onlyPlatform)
+      : ["x", "linkedin"].flatMap((pl) => posts.filter((p: any) => p.platform === pl));
 
-    await sb.from("post_send_log").insert({
-      batch_id: batchId,
-      winner_post_id: winner.id,
-      recipient_email: RECIPIENT,
-      resend_id: resendJson.id,
-      status: "sent",
-    });
+    if (!targets.length) throw new Error(`No posts to send for batch ${batchId}${onlyPlatform ? ` platform ${onlyPlatform}` : ""}`);
 
-    return new Response(JSON.stringify({ sent: true, batch_id: batchId, resend_id: resendJson.id }), {
+    // Dedupe: skip platforms already sent for this batch
+    const { data: alreadyRows } = await sb.from("post_send_log")
+      .select("platform").eq("batch_id", batchId);
+    const alreadyPlatforms = new Set((alreadyRows || []).map((r: any) => r.platform));
+
+    const results: any[] = [];
+    for (const winner of targets) {
+      if (alreadyPlatforms.has(winner.platform)) {
+        results.push({ platform: winner.platform, skipped: true });
+        continue;
+      }
+      const others = posts.filter((p: any) => p.id !== winner.id);
+      const html = buildEmail({
+        product: product?.name || "Template",
+        theme: theme?.hook || "—",
+        winner, others, swapBase,
+      });
+      const subject = `[${platformLabel[winner.platform]}] ${winner.copy.split("\n")[0].slice(0, 70)}`;
+
+      const resendResp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "X-Connection-Api-Key": RESEND_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from: FROM, to: [RECIPIENT], subject, html }),
+      });
+      const resendJson = await resendResp.json();
+      if (!resendResp.ok) {
+        await sb.from("post_send_log").insert({
+          batch_id: batchId,
+          winner_post_id: winner.id,
+          platform: winner.platform,
+          recipient_email: RECIPIENT,
+          status: "error",
+          error: `Resend ${resendResp.status}: ${JSON.stringify(resendJson)}`,
+        });
+        results.push({ platform: winner.platform, error: resendJson });
+        continue;
+      }
+      await sb.from("post_send_log").insert({
+        batch_id: batchId,
+        winner_post_id: winner.id,
+        platform: winner.platform,
+        recipient_email: RECIPIENT,
+        resend_id: resendJson.id,
+        status: "sent",
+      });
+      results.push({ platform: winner.platform, sent: true, resend_id: resendJson.id });
+    }
+
+    return new Response(JSON.stringify({ batch_id: batchId, results }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
