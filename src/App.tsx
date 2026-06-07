@@ -6,6 +6,7 @@ import History from "./pages/History";
 import HistoryDetail from "./pages/HistoryDetail";
 import Settings from "./pages/Settings";
 import SalesPosts from "./pages/SalesPosts";
+import Performance from "./pages/Performance";
 
 export default function App() {
   useEffect(() => {
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/history/:id" element={<HistoryDetail />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/sales" element={<SalesPosts />} />
+        <Route path="/performance" element={<Performance />} />
         <Route path="*" element={<Navigate to="/today" replace />} />
       </Routes>
     </BrowserRouter>
