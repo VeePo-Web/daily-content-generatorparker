@@ -1,78 +1,92 @@
+# Post Performance Tracker + Learning Loop
 
-# Capture Real Page Sections, Not Just Embedded Imagery
+Closes the loop between published posts → real-world performance → AI generator bias, so each day's drafts skew toward patterns that actually win.
 
-## What's wrong now
+## How it works
 
-The current scraper takes blind scroll-position screenshots (scroll 0, 700, 1400…). On a single-page site, many of those land mid-section, repeat the same view, or grab whitespace — they don't cleanly show "the About page", "the Portfolio page", "the Contact page" as discrete shots.
+```text
+Generated post  ──►  You publish on LinkedIn/X  ──►  Paste profile URLs once
+                                                              │
+                                                              ▼
+                                              Daily cron (T+1, T+3, T+7)
+                                                Firecrawl scrape profile
+                                                Fuzzy-match copy → post
+                                                Store impressions/likes/
+                                                comments/reposts
+                                                              │
+                                ┌─────────────────────────────┼─────────────────────────┐
+                                ▼                             ▼                         ▼
+                       Trend research scan           Score top-quartile        Update generator bias
+                       (Firecrawl + AI)              hooks/lengths/themes      (themes, hook patterns,
+                                                                                length, structure)
+```
 
-## Fix — section-aware screenshots
+## What gets built
 
-Rewrite `scrape-template-screenshots` to capture each **logical page/section** of the template, both as a focused viewport shot and a full-page shot, at desktop + mobile.
+### 1. Profile registration (one-time)
+- New `social_accounts` table holding your LinkedIn + X profile URLs.
+- Tiny admin form at `/ops-portal/social-accounts` to paste and edit them.
 
-### Step 1 — Enumerate sections per site
+### 2. Performance tracking
+- New table `post_performance` linked to `generated_posts` — stores impressions, likes, comments, reposts/retweets, plus the live `post_url` once matched.
+- Edge function `track-post-performance` (runs daily via pg_cron):
+  - Scrapes your LinkedIn + X profile pages with Firecrawl.
+  - For every generated post in the last 14 days, fuzzy-matches first ~80 chars of copy against scraped posts to find the live URL.
+  - Re-scrapes that post URL to pull current metric counts.
+  - Writes snapshots at T+1d, T+3d, T+7d so growth is visible (not just final number).
 
-For each base URL:
+### 3. Trend scanner
+- Edge function `scan-social-trends` (runs weekly):
+  - Uses Firecrawl search + scrape on top-performing LinkedIn/X posts in your niche (web design, photographers, owner-operator service businesses).
+  - Lovable AI extracts hook patterns, structures, and topical angles into a `social_trends` table with weekly snapshots.
+  - Feeds into the generator prompt as "what's working right now in your niche."
 
-1. `fetch(base_url)` → parse the HTML server-side (regex / lightweight DOM scan in Deno).
-2. Extract:
-   - **Nav links** — every `<a href="#…">` and `<a href="/…">` inside `<nav>`, `<header>`, or with `data-section` attributes.
-   - **Section anchors** — every `<section id="…">`, `<div id="…">`, `<main id="…">` on the home page.
-   - **Sub-routes** from Firecrawl `map` (already working — found 2 for businesscard, 1 for photographer).
-3. Dedupe → produce a `sections` array like:
-   ```
-   [
-     { label: "home",      url: "https://site.xyz",            anchor: null      },
-     { label: "about",     url: "https://site.xyz",            anchor: "about"   },
-     { label: "portfolio", url: "https://site.xyz",            anchor: "portfolio"},
-     { label: "services",  url: "https://site.xyz",            anchor: "services"},
-     { label: "contact",   url: "https://site.xyz",            anchor: "contact" },
-     { label: "pricing",   url: "https://site.xyz/pricing",    anchor: null      },
-     ...
-   ]
-   ```
+### 4. Learning loop (auto-bias)
+- Extend `post_themes` with rolling `avg_impressions`, `avg_engagement_rate`, `last_performance_at`.
+- Extend `generate-daily-posts`:
+  - After scoring, pull top-quartile historical posts by engagement rate.
+  - Extract their hook pattern, length bucket, theme — bias new generation toward them (same mechanism as the existing `pillar_bias`).
+  - Inject "Trending hook patterns this week" block into the system prompt from `social_trends`.
+  - Inject "Your top 3 performing posts of all time (don't copy, learn the pattern)" examples.
 
-### Step 2 — Capture each section
+### 5. Dashboard view
+- New page `/ops-portal/performance`:
+  - Table of all generated posts with live metrics, growth trend, matched/unmatched status.
+  - "Top performers" panel — what's working.
+  - "Weekly trends" panel — what the scanner found.
+  - Manual "force-match URL" button for any post that auto-match missed.
 
-For every `section × viewport (desktop+mobile)`, fire **two** Firecrawl scrapes:
+## Technical details
 
-- **Full-page** — `formats: [{ type: 'screenshot', fullPage: true, viewport }]`, navigate to `url#anchor`. Captures the entire scrolling section/page as one tall image.
-- **Focused viewport** — `formats: [{ type: 'screenshot', fullPage: false, viewport }]` with `actions: [{ type: 'wait', ms: 1500 }, { type: 'scroll', selector: '#${anchor}' }, { type: 'wait', ms: 800 }]` so the section is scrolled into view, then a single-viewport shot is taken showing just that section in frame.
+**New tables**
+- `social_accounts` (platform, profile_url, handle)
+- `post_performance` (generated_post_id, post_url, captured_at, impressions, likes, comments, shares, day_offset)
+- `social_trends` (week_of, niche, hook_pattern, example_copy, source_url, est_engagement)
 
-If a site has e.g. 8 sections: 8 × 2 viewports × 2 shot-types = **32 high-signal shots per site** — each one shows an actual labeled part of the site, not a random scroll offset.
+**Existing tables touched**
+- `generated_posts` — add `live_post_url`, `matched_at`, `engagement_rate` (latest)
+- `post_themes` — add `avg_engagement_rate`, `performance_sample_size`
 
-### Step 3 — Top up to ~100
+**Edge functions**
+- `track-post-performance` — daily, scrapes profiles + post URLs
+- `scan-social-trends` — weekly, niche research
+- `match-post-url` — manual override endpoint for dashboard
 
-If the enumerated section count × 4 falls short of 100, top up by:
-- Adding mid-section viewport scrolls within each long full-page (every ~900px down the captured full-page is implicitly extra — but we'll keep these in the full-page shot only).
-- For sites with `/sub-route` pages, repeat Step 2 on each route.
+**Cron**
+- pg_cron + pg_net invoking the edge functions on schedule.
 
-For the two current sites (likely 6–10 sections each), we'll land at ~40–80 clean shots per site. **Quality > quantity** — better than 100 near-duplicate scroll frames.
+**Firecrawl usage**
+- Profile scrape: ~2 pages/day (LinkedIn + X) — cheap.
+- Individual post re-scrape: capped at 30 posts × 3 snapshots = max 90/day.
+- Weekly trends: ~20 search + scrape calls.
 
-### Step 4 — Store with semantic labels
+**Fuzzy match**
+- Normalize whitespace + lowercase, compare first 80 chars with Levenshtein distance ≤ 6 — already proven for the existing email-typo detector.
 
-Each row written to `template_assets`:
+## Limits to flag now
 
-- `caption` = `"${label} — ${viewport} — ${full|focus}"` (e.g. `"portfolio — mobile — focus"`).
-- `tags` = `[label, viewport, kind, "template-screenshot"]`.
-- `orientation` = portrait for mobile / full-page, landscape for desktop focus.
-- `asset_type = 'gallery'` (already whitelisted by the generator).
+- LinkedIn often hides impression counts on other people's posts; we'll always get likes/comments/reposts, but impressions only show on **your own** posts when scraped while logged in. Workaround: Firecrawl can't log in as you. We'll show impressions as "manual" — you can paste them weekly from your LinkedIn analytics tab if you want full data. Likes/comments/reposts are fully automated.
+- X (Twitter) without a paid API only exposes public reactions reliably; impressions are visible on your own posts if the scraper can reach them, otherwise same manual fallback.
+- The trend scanner finds public top posts — it can't access X's "For You" personalization.
 
-This also makes the email "01/07 portfolio (desktop)" label-able later if you want.
-
-## Wipe and rerun
-
-- Truncate `template_assets` again (current 47 photographer shots are blind scrolls — replace them).
-- Empty the `template-screenshots/photography/` and `template-screenshots/portfolio/` storage folders.
-- Run the new function once per site in background.
-
-## Files touched
-
-- `supabase/functions/scrape-template-screenshots/index.ts` — replace scroll-grid with section enumeration + targeted captures.
-- DB data: `DELETE FROM template_assets`, repopulate via the function.
-- Storage: clear the two product folders, repopulate.
-
-## Out of scope
-
-- Visually annotating screenshots with section names.
-- Crawling depth > 1 sub-route (won't recurse into nested routes).
-- Headed-browser interactions like opening modals / hovering — captures the static rendered state at each anchor.
+I'll surface unmatched posts clearly in the dashboard so nothing silently drops.

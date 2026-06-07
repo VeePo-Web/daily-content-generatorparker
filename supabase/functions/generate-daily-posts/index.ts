@@ -50,6 +50,31 @@ Deno.serve(async (req) => {
     if (!themes?.length) throw new Error("No enabled post_themes");
     const theme = themes[0];
 
+    // Learning signals: top-performing past posts and current weekly trends
+    const { data: topPosts } = await sb
+      .from("generated_posts")
+      .select("platform, copy, latest_engagement_rate")
+      .not("latest_engagement_rate", "is", null)
+      .order("latest_engagement_rate", { ascending: false })
+      .limit(5);
+
+    const weekMonday = new Date();
+    weekMonday.setUTCDate(weekMonday.getUTCDate() - ((weekMonday.getUTCDay() + 6) % 7));
+    const { data: trends } = await sb
+      .from("social_trends")
+      .select("platform, hook_pattern, example_copy")
+      .gte("week_of", weekMonday.toISOString().slice(0, 10))
+      .limit(8);
+
+    const learningBlock = [
+      topPosts?.length
+        ? `YOUR TOP PERFORMERS (learn the pattern, do NOT copy):\n${topPosts.map((p: any, i: number) => `${i + 1}. [${p.platform} · ${p.latest_engagement_rate} engagements] ${String(p.copy).slice(0, 240)}`).join("\n")}`
+        : "",
+      trends?.length
+        ? `TRENDING HOOK PATTERNS THIS WEEK (use a similar shape):\n${trends.map((t: any, i: number) => `${i + 1}. (${t.platform}) ${t.hook_pattern}${t.example_copy ? ` — e.g. "${String(t.example_copy).slice(0, 160)}"` : ""}`).join("\n")}`
+        : "",
+    ].filter(Boolean).join("\n\n");
+
     // Pick template-screenshot assets ONLY (no lifestyle/scene/portrait).
     // 7 per variant × 2 variants = 14 picks. Pool is small so we shuffle then
     // top up by repeating least-used items to always hit 14.
@@ -83,6 +108,7 @@ Avoid attracting: ${product.poison_list || "agencies, MLM, cheapness shoppers"}.
 
 Today's story seed: "${theme.hook}" (category: ${theme.category})
 
+${learningBlock ? learningBlock + "\n\n" : ""}
 Write 2 variants:
 
 X (≤280 chars): single curiosity hook + one-line story tease + soft CTA ("reply 'site'" or "DM 'site'"). One idea. No thread.
