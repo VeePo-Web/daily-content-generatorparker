@@ -689,6 +689,14 @@ export type Database = {
           image_asset_ids: string[]
           image_urls: string[]
           is_winner: boolean
+          last_tracked_at: string | null
+          latest_comments: number | null
+          latest_engagement_rate: number | null
+          latest_impressions: number | null
+          latest_likes: number | null
+          latest_shares: number | null
+          live_post_url: string | null
+          matched_at: string | null
           platform: string
           score: number
           score_breakdown: Json
@@ -705,6 +713,14 @@ export type Database = {
           image_asset_ids?: string[]
           image_urls?: string[]
           is_winner?: boolean
+          last_tracked_at?: string | null
+          latest_comments?: number | null
+          latest_engagement_rate?: number | null
+          latest_impressions?: number | null
+          latest_likes?: number | null
+          latest_shares?: number | null
+          live_post_url?: string | null
+          matched_at?: string | null
           platform: string
           score?: number
           score_breakdown?: Json
@@ -721,6 +737,14 @@ export type Database = {
           image_asset_ids?: string[]
           image_urls?: string[]
           is_winner?: boolean
+          last_tracked_at?: string | null
+          latest_comments?: number | null
+          latest_engagement_rate?: number | null
+          latest_impressions?: number | null
+          latest_likes?: number | null
+          latest_shares?: number | null
+          live_post_url?: string | null
+          matched_at?: string | null
           platform?: string
           score?: number
           score_breakdown?: Json
@@ -1025,6 +1049,62 @@ export type Database = {
         }
         Relationships: []
       }
+      post_performance: {
+        Row: {
+          captured_at: string
+          comments: number | null
+          created_at: string
+          day_offset: number | null
+          engagement_rate: number | null
+          generated_post_id: string
+          id: string
+          impressions: number | null
+          likes: number | null
+          post_url: string | null
+          raw: Json | null
+          shares: number | null
+          source: string
+        }
+        Insert: {
+          captured_at?: string
+          comments?: number | null
+          created_at?: string
+          day_offset?: number | null
+          engagement_rate?: number | null
+          generated_post_id: string
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          post_url?: string | null
+          raw?: Json | null
+          shares?: number | null
+          source?: string
+        }
+        Update: {
+          captured_at?: string
+          comments?: number | null
+          created_at?: string
+          day_offset?: number | null
+          engagement_rate?: number | null
+          generated_post_id?: string
+          id?: string
+          impressions?: number | null
+          likes?: number | null
+          post_url?: string | null
+          raw?: Json | null
+          shares?: number | null
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_performance_generated_post_id_fkey"
+            columns: ["generated_post_id"]
+            isOneToOne: false
+            referencedRelation: "generated_posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       post_send_log: {
         Row: {
           batch_id: string
@@ -1071,32 +1151,38 @@ export type Database = {
       }
       post_themes: {
         Row: {
+          avg_engagement_rate: number | null
           category: string
           created_at: string
           enabled: boolean
           hook: string
           id: string
           last_used_at: string | null
+          performance_sample_size: number | null
           template_product_id: string | null
           use_count: number
         }
         Insert: {
+          avg_engagement_rate?: number | null
           category: string
           created_at?: string
           enabled?: boolean
           hook: string
           id?: string
           last_used_at?: string | null
+          performance_sample_size?: number | null
           template_product_id?: string | null
           use_count?: number
         }
         Update: {
+          avg_engagement_rate?: number | null
           category?: string
           created_at?: string
           enabled?: boolean
           hook?: string
           id?: string
           last_used_at?: string | null
+          performance_sample_size?: number | null
           template_product_id?: string | null
           use_count?: number
         }
@@ -1513,6 +1599,72 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      social_accounts: {
+        Row: {
+          created_at: string
+          handle: string | null
+          id: string
+          platform: string
+          profile_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          handle?: string | null
+          id?: string
+          platform: string
+          profile_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          handle?: string | null
+          id?: string
+          platform?: string
+          profile_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      social_trends: {
+        Row: {
+          created_at: string
+          est_engagement: number | null
+          example_copy: string | null
+          hook_pattern: string
+          id: string
+          niche: string | null
+          notes: string | null
+          platform: string
+          source_url: string | null
+          week_of: string
+        }
+        Insert: {
+          created_at?: string
+          est_engagement?: number | null
+          example_copy?: string | null
+          hook_pattern: string
+          id?: string
+          niche?: string | null
+          notes?: string | null
+          platform: string
+          source_url?: string | null
+          week_of: string
+        }
+        Update: {
+          created_at?: string
+          est_engagement?: number | null
+          example_copy?: string | null
+          hook_pattern?: string
+          id?: string
+          niche?: string | null
+          notes?: string | null
+          platform?: string
+          source_url?: string | null
+          week_of?: string
+        }
+        Relationships: []
       }
       template_assets: {
         Row: {
