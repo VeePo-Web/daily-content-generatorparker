@@ -246,11 +246,26 @@ HARD RULES:
     const generate = async (rules: string, label: string): Promise<string> => {
       const userPrompt = `Write the ${label} post now. Output only the post text, nothing else.`;
       let out = await callAI(sharedContext + "\n\n" + rules, userPrompt);
+
+      // Retry on stats
       if (hasStats(out)) {
-        // One retry with explicit reminder
         out = await callAI(
           sharedContext + "\n\n" + rules,
           userPrompt + "\n\nIMPORTANT: Your previous draft contained numbers/statistics. Rewrite with ZERO digits, ZERO percentages, ZERO dollar amounts, ZERO metric claims. Principles and a name only.",
+        );
+      }
+      // Retry on weak hooks
+      if (hasWeakHook(out)) {
+        out = await callAI(
+          sharedContext + "\n\n" + rules,
+          userPrompt + `\n\nIMPORTANT: Your previous hook opened with a weak cliché ("In today's", "Let's talk", "Here's why", "Ever wonder", "Did you know", "Imagine if"). Rewrite the first line as a contrarian declarative sentence. No preamble.`,
+        );
+      }
+      // X-specific length retry
+      if (label === "X" && out.length > X_TARGET) {
+        out = await callAI(
+          sharedContext + "\n\n" + rules,
+          userPrompt + `\n\nIMPORTANT: Your previous draft was ${out.length} characters. The hard cap is ${X_TARGET}. Rewrite tighter — cut adjectives first, keep the contrarian hook, keep the URL on its own line.`,
         );
       }
       return out;
@@ -261,12 +276,12 @@ HARD RULES:
       generate(LI_RULES, "LinkedIn"),
     ]);
 
-    const xCopy = stripStats(xCopyRaw);
-    const liCopy = stripStats(liCopyRaw);
+    // Post-process: strip stats, enforce offer placement, hard-cap X length
+    let xCopy = enforceXOffer(stripStats(xCopyRaw), cs.website_url);
+    if (xCopy.length > X_HARD_CAP) xCopy = trimXToLimit(xCopy, cs.website_url);
+    const liCopy = enforceLinkedInOffer(stripStats(liCopyRaw), cs.website_url);
 
-    // Ensure URL present
-    const ensureUrl = (txt: string) =>
-      txt.includes(cs.website_url) ? txt : `${txt.trim()}\n\n${cs.website_url}`;
+    const xWithinLimit = xCopy.length <= X_HARD_CAP;
 
     const batchId = crypto.randomUUID();
     const today = new Date().toISOString().slice(0, 10);
@@ -279,13 +294,13 @@ HARD RULES:
         case_study_id: cs.id,
         theme_id: null,
         platform: "x",
-        copy: ensureUrl(xCopy),
+        copy: xCopy,
         image_urls: [],
         image_asset_ids: [],
         is_winner: true,
         swap_token: crypto.randomUUID(),
         score: 0,
-        score_breakdown: { master_tip: tip, source: "case-study" },
+        score_breakdown: { master_tip: tip, source: "case-study", x_chars: xCopy.length, x_within_limit: xWithinLimit },
       },
       {
         batch_id: batchId,
@@ -294,13 +309,13 @@ HARD RULES:
         case_study_id: cs.id,
         theme_id: null,
         platform: "linkedin",
-        copy: ensureUrl(liCopy),
+        copy: liCopy,
         image_urls: [],
         image_asset_ids: [],
         is_winner: true,
         swap_token: crypto.randomUUID(),
         score: 0,
-        score_breakdown: { master_tip: tip, source: "case-study" },
+        score_breakdown: { master_tip: tip, source: "case-study", linkedin_chars: liCopy.length },
       },
     ];
 
