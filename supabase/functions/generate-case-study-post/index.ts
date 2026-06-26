@@ -33,25 +33,53 @@ const MASTER_TIPS = [
 ];
 
 const X_RULES = `
-Write ONE post for X (Twitter):
-- 220–280 characters total (hard cap).
-- Open with a sharp, declarative sentence (the master tip, distilled).
-- One short line referencing the client (by name) as the living example.
-- End with the client's website URL on its own line.
-- No hashtags. No emojis. No exclamation marks. No numbers, percentages, or statistics.
-- Voice: David Ogilvy. Direct. Adult. Unhurried.
+Write ONE post for X (Twitter). Engineered to stop the scroll and earn the click.
+
+STRUCTURE (in order, no labels in output):
+1. Pattern-interrupt opener — one declarative sentence that contradicts a common belief about websites, design, or marketing. Distill the master tip into it.
+2. One short line that names the client (use their real name) as the living proof.
+3. Blank line.
+4. The client website URL on its own line. The URL is the only call to action.
+
+HARD CONSTRAINTS:
+- 220–280 characters total including the URL (hard cap).
+- No hashtags. No emojis. No exclamation marks. No questions. No "I" voice.
+- No numbers, percentages, dollar amounts, "X+ clients", or any statistic.
+- Maximum ONE em-dash in the entire post.
+- No call-to-action verbs like "check out", "see for yourself", "click here". The URL stands alone.
+- Voice: David Ogilvy. Direct. Adult. Quiet authority.
 `.trim();
 
 const LI_RULES = `
-Write ONE post for LinkedIn:
-- 700–1300 characters.
-- Open with the master tip as a one-line truth (no preamble like "Here's a thought").
-- One short paragraph expanding the principle.
-- One short paragraph naming the client and what kind of work the site does for them (no metrics, no stats, no numbers, no percentages).
-- If a verbatim client quote is provided, weave it in inside quotation marks with attribution. Do not paraphrase.
-- End with a single line: the client's website URL.
-- No hashtags. No emojis. No bullet lists. No "DM me". No call-to-action begging.
-- Voice: David Ogilvy directness, Veepo gravity. Adult. No hype words ("crushing", "incredible", "amazing", "game-changer").
+Write ONE post for LinkedIn. Engineered for conversion using Hook → Story → Offer.
+
+STRUCTURE (in order, no labels in output, blank line between sections):
+
+1. HOOK — one contrarian or unusually specific sentence. The master tip, sharpened. No preamble ("Here's a thought", "The truth is", "Let's dive in").
+
+2. STAKES — one short paragraph (2–3 sentences) naming what the reader is quietly losing right now by not having understood this principle. Concrete, not theoretical.
+
+3. VIGNETTE — one short paragraph that names the client and describes the specific design decision Veepo made on their site that put the principle into practice. No metrics. No numbers. No vague praise. Show the choice.
+
+4. PROOF — if a verbatim client quote is provided in context, drop it on its own line inside quotation marks with attribution exactly as given. Do not paraphrase. If no quote is provided, restate the principle as one short line of conviction instead.
+
+5. OFFER — exactly this line, no variations:
+See it live: {WEBSITE_URL}
+
+HARD CONSTRAINTS:
+- 700–1300 characters total.
+- No hashtags. No emojis. No bullet lists or numbered lists in the output.
+- No "DM me", "drop a comment", "let me know below", "thoughts?".
+- No numbers, percentages, dollar amounts, ranking claims, "X+ clients", "doubled", "boosted", "ROI", "leads", "conversions".
+- Maximum ONE em-dash in the entire post.
+- Forbidden phrases: "amazing", "incredible", "game-changer", "crushing it", "thought leader", "in today's market", "the truth is", "here's the thing", "let's dive in", "world-class", "next-level".
+- Voice: David Ogilvy directness with Veepo gravity. Adult. Unhurried. No hype.
+
+SELF-CHECK before returning (silent — do not write it in output):
+- Does the hook contradict a common belief or land an unusually specific truth? If not, rewrite.
+- Would a busy founder keep reading after line one? If not, rewrite.
+- Are there ANY digits in the body (URL excluded)? If yes, remove them.
+- Does the post end with "See it live: {URL}" on its own line? If not, fix.
 `.trim();
 
 function stripStats(s: string): string {
@@ -130,7 +158,9 @@ Deno.serve(async (req) => {
 
     const sharedContext = `
 You are writing a post for Veepo, a premium web development studio (Cochrane, AB).
-Voice: David Ogilvy directness + quiet authority. Adult. No marketing fluff.
+Voice: David Ogilvy directness + quiet authority. Russell Brunson structural rigor (Hook → Story → Offer). Adult. No marketing fluff.
+
+You are not writing for likes. You are writing for one click — from a founder, marketer, or operator who lands on the client's site and quietly realizes Veepo is the studio they should hire.
 
 The master sales/marketing tip (this is the spine of the post — express it in your own words but keep the meaning exact):
 "${tip}"

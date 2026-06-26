@@ -16,11 +16,13 @@ const FROM = "Veepo Pitch <pitch@veepo.ca>";
 function buildEmail(opts: {
   product: string;
   theme: string;
+  clientName?: string | null;
+  websiteUrl?: string | null;
   winner: any;
   others: any[];
   swapBase: string;
 }) {
-  const { product, theme, winner, others, swapBase } = opts;
+  const { product, theme, clientName, websiteUrl, winner, others, swapBase } = opts;
   const platformLabel: Record<string, string> = { x: "X / Twitter", instagram: "Instagram", linkedin: "LinkedIn" };
   const escaped = (winner.copy || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
   const imgs: string[] = winner.image_urls || [];
@@ -45,10 +47,18 @@ function buildEmail(opts: {
     `<a href="${swapBase}?token=${o.swap_token}" style="color:#4CAF50;text-decoration:underline;">Swap to ${platformLabel[o.platform]} (score ${o.score})</a>`
   ).join(" &nbsp;·&nbsp; ");
 
+  const isCaseStudy = !!clientName;
+  const headerLine = isCaseStudy
+    ? `Case study · <strong>${clientName}</strong>${websiteUrl ? ` · <a href="${websiteUrl}" style="color:#4CAF50;">${websiteUrl.replace(/^https?:\/\//,'')}</a>` : ""}`
+    : `${product} · Theme: <em>${theme}</em>`;
+  const titleLine = isCaseStudy
+    ? `Today's post · ${platformLabel[winner.platform]}`
+    : `Today's post · ${platformLabel[winner.platform]} (score ${winner.score})`;
+
   return `<!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;max-width:640px;margin:0 auto;padding:24px;color:#111;">
-<p style="font-size:13px;color:#666;margin:0 0 4px;">${product} · Theme: <em>${theme}</em></p>
-<h2 style="font-size:20px;margin:0 0 16px;">Today's post · ${platformLabel[winner.platform]} (score ${winner.score})</h2>
+<p style="font-size:13px;color:#666;margin:0 0 4px;">${headerLine}</p>
+<h2 style="font-size:20px;margin:0 0 16px;">${titleLine}</h2>
 
 <div style="background:#f7f7f5;border-left:3px solid #4CAF50;padding:16px;font-size:15px;line-height:1.55;white-space:pre-wrap;margin-bottom:24px;">${escaped}</div>
 
@@ -87,10 +97,17 @@ Deno.serve(async (req) => {
     const { data: posts } = await sb.from("generated_posts").select("*").eq("batch_id", batchId);
     if (!posts?.length) throw new Error(`No posts for batch ${batchId}`);
 
-    // Load product + theme once
+    // Load product + theme + case study (whichever applies)
     const firstPost = posts[0];
-    const { data: product } = await sb.from("template_products").select("name").eq("id", firstPost.template_product_id).maybeSingle();
-    const { data: theme } = await sb.from("post_themes").select("hook").eq("id", firstPost.theme_id).maybeSingle();
+    const { data: product } = firstPost.template_product_id
+      ? await sb.from("template_products").select("name").eq("id", firstPost.template_product_id).maybeSingle()
+      : { data: null } as any;
+    const { data: theme } = firstPost.theme_id
+      ? await sb.from("post_themes").select("hook").eq("id", firstPost.theme_id).maybeSingle()
+      : { data: null } as any;
+    const { data: caseStudy } = firstPost.case_study_id
+      ? await sb.from("case_studies").select("client_name, website_url").eq("id", firstPost.case_study_id).maybeSingle()
+      : { data: null } as any;
     const swapBase = `${SUPABASE_URL}/functions/v1/swap-post-winner`;
     const platformLabel: Record<string, string> = { x: "X", instagram: "IG", linkedin: "LinkedIn" };
 
@@ -115,9 +132,13 @@ Deno.serve(async (req) => {
       const html = buildEmail({
         product: product?.name || "Template",
         theme: theme?.hook || "—",
+        clientName: caseStudy?.client_name || null,
+        websiteUrl: caseStudy?.website_url || null,
         winner, others, swapBase,
       });
-      const subject = `[${platformLabel[winner.platform]}] ${winner.copy.split("\n")[0].slice(0, 70)}`;
+      const firstLine = (winner.copy || "").split("\n")[0].trim();
+      const subjectClient = caseStudy?.client_name ? ` | ${caseStudy.client_name}` : "";
+      const subject = `[${platformLabel[winner.platform]}${subjectClient}] ${firstLine.slice(0, 80)}`;
 
       const resendResp = await fetch("https://connector-gateway.lovable.dev/resend/emails", {
         method: "POST",
