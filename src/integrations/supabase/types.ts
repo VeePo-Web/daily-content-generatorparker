@@ -284,6 +284,51 @@ export type Database = {
         }
         Relationships: []
       }
+      case_studies: {
+        Row: {
+          client_name: string
+          created_at: string
+          enabled: boolean
+          headline_outcome: string | null
+          id: string
+          last_used_at: string | null
+          quote: string | null
+          quote_attribution: string | null
+          updated_at: string
+          use_count: number
+          vertical: string | null
+          website_url: string
+        }
+        Insert: {
+          client_name: string
+          created_at?: string
+          enabled?: boolean
+          headline_outcome?: string | null
+          id?: string
+          last_used_at?: string | null
+          quote?: string | null
+          quote_attribution?: string | null
+          updated_at?: string
+          use_count?: number
+          vertical?: string | null
+          website_url: string
+        }
+        Update: {
+          client_name?: string
+          created_at?: string
+          enabled?: boolean
+          headline_outcome?: string | null
+          id?: string
+          last_used_at?: string | null
+          quote?: string | null
+          quote_attribution?: string | null
+          updated_at?: string
+          use_count?: number
+          vertical?: string | null
+          website_url?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -683,6 +728,7 @@ export type Database = {
         Row: {
           batch_date: string
           batch_id: string
+          case_study_id: string | null
           copy: string
           created_at: string
           id: string
@@ -701,12 +747,13 @@ export type Database = {
           score: number
           score_breakdown: Json
           swap_token: string
-          template_product_id: string
+          template_product_id: string | null
           theme_id: string | null
         }
         Insert: {
           batch_date?: string
           batch_id: string
+          case_study_id?: string | null
           copy: string
           created_at?: string
           id?: string
@@ -725,12 +772,13 @@ export type Database = {
           score?: number
           score_breakdown?: Json
           swap_token?: string
-          template_product_id: string
+          template_product_id?: string | null
           theme_id?: string | null
         }
         Update: {
           batch_date?: string
           batch_id?: string
+          case_study_id?: string | null
           copy?: string
           created_at?: string
           id?: string
@@ -749,10 +797,17 @@ export type Database = {
           score?: number
           score_breakdown?: Json
           swap_token?: string
-          template_product_id?: string
+          template_product_id?: string | null
           theme_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "generated_posts_case_study_id_fkey"
+            columns: ["case_study_id"]
+            isOneToOne: false
+            referencedRelation: "case_studies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "generated_posts_template_product_id_fkey"
             columns: ["template_product_id"]

@@ -1,70 +1,61 @@
-# Pre-fill VeePo Profiles + World-Class Audit
+## Pivot the daily content engine
 
-## Part 1 — Seed the profile URLs
+Move from "template-product Russell-Brunson posts + performance tracking" to **case-study-led sales-tips posts**, one X + one LinkedIn per day, randomly chosen from a `case_studies` table you populate by pasting in chat.
 
-Insert two rows into `social_accounts` so the Performance page loads with them already saved (no need to type/paste):
+---
 
-- **X**: `https://x.com/Veepo_web` (handle: `Veepo_web`)
-- **LinkedIn**: `https://www.linkedin.com/in/parker-gawryletz/recent-activity/all/` (handle: `parker-gawryletz`)
-  - The `/recent-activity/all/` suffix is critical — without it Firecrawl scrapes the static profile header instead of the post feed.
+### 1. Pause the current automation (non-destructive)
 
-If rows already exist for those platforms, update them in place (idempotent upsert by `platform`).
+- Unschedule the existing pg_cron jobs that call `generate-daily-posts`, `track-post-performance`, and `scan-social-trends`.
+- Leave all tables, edge functions, the `/performance` page, and existing data **intact** so you can flip it back on later if you ever want.
 
-## Part 2 — World-class audit (no code changes unless audit finds a bug)
+### 2. New `case_studies` table
 
-A six-pass review of the closed loop end-to-end. Each pass produces a pass/fail with a one-line fix recommendation if it fails.
+Columns: `id`, `client_name`, `vertical` (e.g. "music", "real-estate"), `website_url`, `quote` (nullable), `quote_attribution` (nullable), `headline_outcome` (one-line plain-English win, no numbers/stats), `last_used_at`, `use_count`, `enabled`. RLS: admin-only writes, service_role full.
 
-### Pass 1 — Database integrity
-- Confirm `social_accounts`, `post_performance`, `social_trends` tables exist with expected columns.
-- Confirm `generated_posts` has `live_post_url`, `matched_at`, `latest_*`, `last_tracked_at` columns.
-- Confirm `post_themes` has `avg_engagement_rate`, `performance_sample_size`.
-- Confirm RLS policies + GRANTs let the edge functions (service role) read/write.
-- Confirm pg_cron jobs are scheduled (daily 09:00 UTC tracker, Mondays 08:00 UTC trends).
+I'll seed it from the case studies you paste in chat (name + website URL + optional quote). You can add more anytime via a simple form on the `/ops-portal/case-studies` page.
 
-### Pass 2 — Secrets & connectors
-- `FIRECRAWL_API_KEY` present (already confirmed).
-- `LOVABLE_API_KEY` present for the Gemini calls in `scan-social-trends`.
-- Verify Firecrawl credentials with the gateway verify endpoint.
+### 3. New edge function: `generate-case-study-post`
 
-### Pass 3 — Live edge function smoke test
-- Deploy `track-post-performance`, `scan-social-trends`, `match-post-url` (ensure latest code is live).
-- `curl` invoke `track-post-performance` once. Expect JSON with `scraped[]` showing both platforms returned >0 posts, plus `matched` and `snapshots` counts.
-- Inspect logs for any silent Firecrawl/parse errors.
-- `curl` invoke `scan-social-trends` once. Expect `inserted > 0` and rows in `social_trends`.
+- Picks **one** case study (least-recently-used, enabled).
+- Generates **one X post + one LinkedIn post** about that case study.
+- Voice: Veepo brand (per `public/brands/veepo.json`) — David Ogilvy directness + spiritual-warfare gravitas, no soft tropes.
+- Strict rules baked into the system prompt:
+  - **No statistics, no numbers, no metrics** (no "increased by X%", no "got Y leads"). Reviewer-style: principles, not proof.
+  - **Always include the client's website URL** as a clean link at the end.
+  - **Master sales/marketing tip** is the spine of the post — the case study is the example that makes the tip land.
+  - If a `quote` exists, weave it in verbatim with attribution.
+  - Tips drawn from a rotating pool of website-conversion principles (ICP pain/objection mapping, journey-as-dispelling-objections, hero clarity, friction reduction, social proof framing, CTA specificity, etc.) — passed in the prompt so each post hits a different angle.
 
-### Pass 4 — Match-quality spot check
-- Read 3 random rows from `post_performance` and confirm `raw.snippet` actually resembles the matched `generated_posts.copy` (catches the Levenshtein threshold being too loose).
-- If match distance is consistently >15, recommend tightening the threshold or expanding the compared prefix.
+### 4. Schedule it
 
-### Pass 5 — Learning-loop wiring
-- Re-read `generate-daily-posts/index.ts` and confirm:
-  - It pulls top-N posts by `latest_engagement_rate`.
-  - It pulls current-week rows from `social_trends`.
-  - Both are injected into the system prompt (not silently dropped).
-- Confirm `post_themes.avg_engagement_rate` is consumed by the existing pillar/theme bias logic.
+New pg_cron job, once daily (09:00 MST). Output saved to existing `generated_posts` table so the existing `/today` review UI and email pipeline keep working untouched.
 
-### Pass 6 — UI sanity
-- Load `/ops-portal/performance`, confirm the two profile URLs render pre-filled.
-- Confirm the "Run tracker now" and "Scan weekly trends" buttons return non-error toasts.
-- Confirm the "All posts" table renders without empty/undefined cells.
+### 5. Tiny `/ops-portal/case-studies` admin page
 
-## Deliverable
+List + add/edit/delete case studies. Toggle enabled. Shows last_used_at so you can see rotation.
 
-A single audit report posted back in chat:
+---
 
-```text
-✅/❌  Pass 1 Database integrity      — <details>
-✅/❌  Pass 2 Secrets & connectors    — <details>
-✅/❌  Pass 3 Edge function smoke     — <matched=N, snapshots=N, trends=N>
-✅/❌  Pass 4 Match quality           — <avg distance, sample>
-✅/❌  Pass 5 Learning loop wiring    — <confirmed injections>
-✅/❌  Pass 6 UI sanity               — <screenshots/notes>
+### What I need from you to build this
 
-Fixes applied: <list, or "none — system is green">
+Paste your case studies in this format (one per line is fine):
+
+```
+Client name | website URL | optional quote | optional quote attribution
 ```
 
-If any pass fails, I apply the smallest possible fix (edge function tweak, threshold change, missing GRANT, missing cron job) in the same build pass and re-run that pass until green.
+Example:
+```
+Karl Salingua Music | https://karlsalinguamusic.com | Parker was the ultimate solution to all my problems. | Karl Salingua
+```
 
-## Out of scope
-- No new tables, no new edge functions, no schema changes (unless audit uncovers a missing column/grant).
-- LinkedIn impressions remain manual — the audit will not try to scrape logged-in impression data.
+I'll seed whatever you paste, build the admin page, and the daily generator will start rotating through them tomorrow morning.
+
+---
+
+### Out of scope (intentionally)
+
+- No changes to `/performance`, tracking functions, or `social_trends` — paused, not deleted.
+- No statistics / proof numbers in generated copy — enforced in prompt + a post-generation regex guard that rejects digits-with-% or "X clients/leads/sales".
+- No template-product posts in this new flow (they stay in the paused `generate-daily-posts` function, ready to re-enable later).

@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { CalendarDays, Clock, Settings, Megaphone, BarChart3 } from "lucide-react";
+import { CalendarDays, Clock, Settings, Megaphone, BarChart3, Quote } from "lucide-react";
 
 export default function Nav() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -24,6 +24,10 @@ export default function Nav() {
         <NavLink to="/sales" className={linkClass}>
           <Megaphone size={14} />
           Sales
+        </NavLink>
+        <NavLink to="/case-studies" className={linkClass}>
+          <Quote size={14} />
+          Case Studies
         </NavLink>
         <NavLink to="/performance" className={linkClass}>
           <BarChart3 size={14} />
