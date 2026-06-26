@@ -1,0 +1,1 @@
+ALTER TABLE public.generated_posts ALTER COLUMN template_product_id DROP NOT NULL;

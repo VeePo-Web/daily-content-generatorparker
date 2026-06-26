@@ -747,7 +747,7 @@ export type Database = {
           score: number
           score_breakdown: Json
           swap_token: string
-          template_product_id: string
+          template_product_id: string | null
           theme_id: string | null
         }
         Insert: {
@@ -772,7 +772,7 @@ export type Database = {
           score?: number
           score_breakdown?: Json
           swap_token?: string
-          template_product_id: string
+          template_product_id?: string | null
           theme_id?: string | null
         }
         Update: {
@@ -797,7 +797,7 @@ export type Database = {
           score?: number
           score_breakdown?: Json
           swap_token?: string
-          template_product_id?: string
+          template_product_id?: string | null
           theme_id?: string | null
         }
         Relationships: [
