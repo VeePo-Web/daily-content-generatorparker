@@ -102,6 +102,70 @@ function hasStats(s: string): boolean {
   return false;
 }
 
+const X_HARD_CAP = 280;
+const X_TARGET = 270; // 10-char safety buffer
+const WEAK_HOOKS = [
+  /^in today'?s\b/i,
+  /^let'?s (talk|dive)/i,
+  /^here'?s why\b/i,
+  /^ever wonder/i,
+  /^did you know\b/i,
+  /^imagine if\b/i,
+];
+
+function hasWeakHook(s: string): boolean {
+  const first = s.trim().split(/\n/)[0] || "";
+  return WEAK_HOOKS.some((rx) => rx.test(first));
+}
+
+// Deterministic trim: drop trailing sentences in the body, keep the final URL line intact.
+function trimXToLimit(txt: string, url: string): string {
+  const ensure = (s: string) => (s.includes(url) ? s : `${s.trim()}\n\n${url}`);
+  let out = ensure(txt).trim();
+  if (out.length <= X_HARD_CAP) return out;
+
+  const urlIdx = out.lastIndexOf(url);
+  const head = out.slice(0, urlIdx).trim();
+  const tail = out.slice(urlIdx); // url + anything after
+
+  // Split head into sentences and drop from the end until under cap.
+  const sentences = head.split(/(?<=[.!?])\s+/);
+  while (sentences.length > 1) {
+    sentences.pop();
+    const candidate = `${sentences.join(" ").trim()}\n\n${tail.trim()}`;
+    if (candidate.length <= X_HARD_CAP) return candidate;
+  }
+  // Fallback: hard slice the head.
+  const room = X_HARD_CAP - (tail.length + 2);
+  const sliced = room > 20 ? head.slice(0, room).replace(/\s+\S*$/, "") : "";
+  return `${sliced}\n\n${tail.trim()}`.trim();
+}
+
+// Ensure LinkedIn ends with "See it live: {url}" exactly once.
+function enforceLinkedInOffer(txt: string, url: string): string {
+  const offer = `See it live: ${url}`;
+  const cleaned = txt.replace(new RegExp(`See it live:\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`), "").trim();
+  return `${cleaned}\n\n${offer}`;
+}
+
+// Ensure X ends with the URL on its own line, no trailing punctuation.
+function enforceXOffer(txt: string, url: string): string {
+  let t = txt.replace(/[\s.,;:!?]+$/g, "").trim();
+  // Remove any in-body occurrences of the URL except the last.
+  const parts = t.split(url);
+  if (parts.length > 2) {
+    t = parts.slice(0, -1).join("").replace(/\s+$/g, "") + url;
+  } else if (parts.length === 1) {
+    t = `${t}\n\n${url}`;
+  } else {
+    // exactly one occurrence — make sure it's at the end
+    const before = parts[0].trim();
+    const after = parts[1].trim();
+    t = after ? `${before} ${after}\n\n${url}` : `${before}\n\n${url}`;
+  }
+  return t.trim();
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
