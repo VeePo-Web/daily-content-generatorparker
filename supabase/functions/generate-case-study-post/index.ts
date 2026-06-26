@@ -63,6 +63,17 @@ function stripStats(s: string): string {
     .replace(/  +/g, " ");
 }
 
+// Detects statistic-shaped phrasing the prompt forbids. URLs are stripped before checking
+// so a domain like "fly4me.ca" doesn't trigger a false positive.
+function hasStats(s: string): boolean {
+  const cleaned = s.replace(/https?:\/\/\S+/g, "").replace(/\b[\w-]+\.(com|ca|info|clothing|co|io|net|org|xyz)\b/gi, "");
+  if (/\b\d{2,}\b/.test(cleaned)) return true; // any 2+ digit number
+  if (/\b\d+\s?(%|percent|x)\b/i.test(cleaned)) return true;
+  if (/\$\s?\d/.test(cleaned)) return true;
+  if (/\b(increased|boosted|grew|doubled|tripled|\d+\+\s*clients|roi|conversions|leads)\b/i.test(cleaned)) return true;
+  return false;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -138,9 +149,22 @@ HARD RULES:
 - Do not use the words: "amazing", "incredible", "game-changer", "crushed it", "ROI", "leads", "conversions".
 `.trim();
 
+    const generate = async (rules: string, label: string): Promise<string> => {
+      const userPrompt = `Write the ${label} post now. Output only the post text, nothing else.`;
+      let out = await callAI(sharedContext + "\n\n" + rules, userPrompt);
+      if (hasStats(out)) {
+        // One retry with explicit reminder
+        out = await callAI(
+          sharedContext + "\n\n" + rules,
+          userPrompt + "\n\nIMPORTANT: Your previous draft contained numbers/statistics. Rewrite with ZERO digits, ZERO percentages, ZERO dollar amounts, ZERO metric claims. Principles and a name only.",
+        );
+      }
+      return out;
+    };
+
     const [xCopyRaw, liCopyRaw] = await Promise.all([
-      callAI(sharedContext + "\n\n" + X_RULES, "Write the X post now. Output only the post text, nothing else."),
-      callAI(sharedContext + "\n\n" + LI_RULES, "Write the LinkedIn post now. Output only the post text, nothing else."),
+      generate(X_RULES, "X"),
+      generate(LI_RULES, "LinkedIn"),
     ]);
 
     const xCopy = stripStats(xCopyRaw);
