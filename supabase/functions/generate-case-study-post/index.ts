@@ -102,6 +102,70 @@ function hasStats(s: string): boolean {
   return false;
 }
 
+const X_HARD_CAP = 280;
+const X_TARGET = 270; // 10-char safety buffer
+const WEAK_HOOKS = [
+  /^in today'?s\b/i,
+  /^let'?s (talk|dive)/i,
+  /^here'?s why\b/i,
+  /^ever wonder/i,
+  /^did you know\b/i,
+  /^imagine if\b/i,
+];
+
+function hasWeakHook(s: string): boolean {
+  const first = s.trim().split(/\n/)[0] || "";
+  return WEAK_HOOKS.some((rx) => rx.test(first));
+}
+
+// Deterministic trim: drop trailing sentences in the body, keep the final URL line intact.
+function trimXToLimit(txt: string, url: string): string {
+  const ensure = (s: string) => (s.includes(url) ? s : `${s.trim()}\n\n${url}`);
+  let out = ensure(txt).trim();
+  if (out.length <= X_HARD_CAP) return out;
+
+  const urlIdx = out.lastIndexOf(url);
+  const head = out.slice(0, urlIdx).trim();
+  const tail = out.slice(urlIdx); // url + anything after
+
+  // Split head into sentences and drop from the end until under cap.
+  const sentences = head.split(/(?<=[.!?])\s+/);
+  while (sentences.length > 1) {
+    sentences.pop();
+    const candidate = `${sentences.join(" ").trim()}\n\n${tail.trim()}`;
+    if (candidate.length <= X_HARD_CAP) return candidate;
+  }
+  // Fallback: hard slice the head.
+  const room = X_HARD_CAP - (tail.length + 2);
+  const sliced = room > 20 ? head.slice(0, room).replace(/\s+\S*$/, "") : "";
+  return `${sliced}\n\n${tail.trim()}`.trim();
+}
+
+// Ensure LinkedIn ends with "See it live: {url}" exactly once.
+function enforceLinkedInOffer(txt: string, url: string): string {
+  const offer = `See it live: ${url}`;
+  const cleaned = txt.replace(new RegExp(`See it live:\\s*${url.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*$`), "").trim();
+  return `${cleaned}\n\n${offer}`;
+}
+
+// Ensure X ends with the URL on its own line, no trailing punctuation.
+function enforceXOffer(txt: string, url: string): string {
+  let t = txt.replace(/[\s.,;:!?]+$/g, "").trim();
+  // Remove any in-body occurrences of the URL except the last.
+  const parts = t.split(url);
+  if (parts.length > 2) {
+    t = parts.slice(0, -1).join("").replace(/\s+$/g, "") + url;
+  } else if (parts.length === 1) {
+    t = `${t}\n\n${url}`;
+  } else {
+    // exactly one occurrence — make sure it's at the end
+    const before = parts[0].trim();
+    const after = parts[1].trim();
+    t = after ? `${before} ${after}\n\n${url}` : `${before}\n\n${url}`;
+  }
+  return t.trim();
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
@@ -182,11 +246,26 @@ HARD RULES:
     const generate = async (rules: string, label: string): Promise<string> => {
       const userPrompt = `Write the ${label} post now. Output only the post text, nothing else.`;
       let out = await callAI(sharedContext + "\n\n" + rules, userPrompt);
+
+      // Retry on stats
       if (hasStats(out)) {
-        // One retry with explicit reminder
         out = await callAI(
           sharedContext + "\n\n" + rules,
           userPrompt + "\n\nIMPORTANT: Your previous draft contained numbers/statistics. Rewrite with ZERO digits, ZERO percentages, ZERO dollar amounts, ZERO metric claims. Principles and a name only.",
+        );
+      }
+      // Retry on weak hooks
+      if (hasWeakHook(out)) {
+        out = await callAI(
+          sharedContext + "\n\n" + rules,
+          userPrompt + `\n\nIMPORTANT: Your previous hook opened with a weak cliché ("In today's", "Let's talk", "Here's why", "Ever wonder", "Did you know", "Imagine if"). Rewrite the first line as a contrarian declarative sentence. No preamble.`,
+        );
+      }
+      // X-specific length retry
+      if (label === "X" && out.length > X_TARGET) {
+        out = await callAI(
+          sharedContext + "\n\n" + rules,
+          userPrompt + `\n\nIMPORTANT: Your previous draft was ${out.length} characters. The hard cap is ${X_TARGET}. Rewrite tighter — cut adjectives first, keep the contrarian hook, keep the URL on its own line.`,
         );
       }
       return out;
@@ -197,12 +276,12 @@ HARD RULES:
       generate(LI_RULES, "LinkedIn"),
     ]);
 
-    const xCopy = stripStats(xCopyRaw);
-    const liCopy = stripStats(liCopyRaw);
+    // Post-process: strip stats, enforce offer placement, hard-cap X length
+    let xCopy = enforceXOffer(stripStats(xCopyRaw), cs.website_url);
+    if (xCopy.length > X_HARD_CAP) xCopy = trimXToLimit(xCopy, cs.website_url);
+    const liCopy = enforceLinkedInOffer(stripStats(liCopyRaw), cs.website_url);
 
-    // Ensure URL present
-    const ensureUrl = (txt: string) =>
-      txt.includes(cs.website_url) ? txt : `${txt.trim()}\n\n${cs.website_url}`;
+    const xWithinLimit = xCopy.length <= X_HARD_CAP;
 
     const batchId = crypto.randomUUID();
     const today = new Date().toISOString().slice(0, 10);
@@ -215,13 +294,13 @@ HARD RULES:
         case_study_id: cs.id,
         theme_id: null,
         platform: "x",
-        copy: ensureUrl(xCopy),
+        copy: xCopy,
         image_urls: [],
         image_asset_ids: [],
         is_winner: true,
         swap_token: crypto.randomUUID(),
         score: 0,
-        score_breakdown: { master_tip: tip, source: "case-study" },
+        score_breakdown: { master_tip: tip, source: "case-study", x_chars: xCopy.length, x_within_limit: xWithinLimit },
       },
       {
         batch_id: batchId,
@@ -230,13 +309,13 @@ HARD RULES:
         case_study_id: cs.id,
         theme_id: null,
         platform: "linkedin",
-        copy: ensureUrl(liCopy),
+        copy: liCopy,
         image_urls: [],
         image_asset_ids: [],
         is_winner: true,
         swap_token: crypto.randomUUID(),
         score: 0,
-        score_breakdown: { master_tip: tip, source: "case-study" },
+        score_breakdown: { master_tip: tip, source: "case-study", linkedin_chars: liCopy.length },
       },
     ];
 
