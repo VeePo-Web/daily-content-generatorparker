@@ -25,6 +25,7 @@ function buildEmail(opts: {
   const escaped = (winner.copy || "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/\n/g, "<br>");
   const imgs: string[] = winner.image_urls || [];
   const total = imgs.length;
+  const hasImgs = total > 0;
 
   const imgBlocks = imgs.map((url, i) => {
     const n = String(i + 1).padStart(2, "0");
@@ -51,12 +52,11 @@ function buildEmail(opts: {
 
 <div style="background:#f7f7f5;border-left:3px solid #4CAF50;padding:16px;font-size:15px;line-height:1.55;white-space:pre-wrap;margin-bottom:24px;">${escaped}</div>
 
-<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin:0 0 12px;">${total} template screenshots — tap & hold (mobile) or right-click to save</h3>
+${hasImgs ? `<h3 style="font-size:13px;text-transform:uppercase;letter-spacing:1.5px;color:#444;margin:0 0 12px;">${total} template screenshots — tap & hold (mobile) or right-click to save</h3>
 ${imgBlocks}
-
 <hr style="border:0;border-top:1px solid #eee;margin:24px 0;">
 <p style="font-size:12px;color:#666;margin:0 0 6px;"><strong>All image URLs:</strong></p>
-<pre style="font-size:11px;color:#555;background:#fafaf8;padding:10px;border:1px solid #eee;white-space:pre-wrap;word-break:break-all;">${allUrls}</pre>
+<pre style="font-size:11px;color:#555;background:#fafaf8;padding:10px;border:1px solid #eee;white-space:pre-wrap;word-break:break-all;">${allUrls}</pre>` : ""}
 
 ${swapLinks ? `<p style="margin-top:20px;font-size:13px;color:#555;">${swapLinks}</p>` : ""}
 <hr style="border:0;border-top:1px solid #eee;margin:24px 0;">
