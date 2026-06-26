@@ -1,0 +1,1 @@
+UPDATE public.case_studies SET last_used_at = NULL, use_count = 0 WHERE enabled = true;
