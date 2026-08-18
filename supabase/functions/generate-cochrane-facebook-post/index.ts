@@ -133,6 +133,26 @@ function scrub(s: string): string {
     .trim();
 }
 
+// Facebook needs air. If the model returned one block, break it into
+// hook / scene / lesson / proof-close groups at sentence boundaries.
+function enforceParagraphs(txt: string): string {
+  const normalized = txt.replace(/\n(?!\n)/g, "\n\n").trim();
+  const blocks = normalized.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+  if (blocks.length >= 3) return blocks.join("\n\n");
+
+  const sentences = normalized.replace(/\n+/g, " ").split(/(?<=[.!?])\s+(?=[A-Z"])/).filter(Boolean);
+  if (sentences.length < 4) return normalized;
+
+  const out: string[] = [sentences[0]];
+  const rest = sentences.slice(1);
+  const groups = 3;
+  const size = Math.ceil(rest.length / groups);
+  for (let i = 0; i < rest.length; i += size) {
+    out.push(rest.slice(i, i + size).join(" "));
+  }
+  return out.map((p) => p.trim()).filter(Boolean).join("\n\n");
+}
+
 function enforceUrl(txt: string): string {
   let t = txt.replace(/[\s.,;:!?]+$/g, "").trim();
   const parts = t.split(SITE_URL);
@@ -236,7 +256,7 @@ ${FB_RULES}`;
       out = await callAI(system, `${userPrompt}\n\nIMPORTANT: your previous draft was ${provisional.length} characters. It must land between ${MIN_CHARS} and ${MAX_CHARS}. ${provisional.length > MAX_CHARS ? "Cut adjectives and the weakest paragraph first." : "Add one more concrete line to the scene."}`);
     }
 
-    const copy = enforceUrl(scrub(out));
+    const copy = enforceUrl(enforceParagraphs(scrub(out)));
 
     const batchId = crypto.randomUUID();
     const today = new Date().toISOString().slice(0, 10);
