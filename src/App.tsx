@@ -8,6 +8,7 @@ import Settings from "./pages/Settings";
 import SalesPosts from "./pages/SalesPosts";
 import Performance from "./pages/Performance";
 import CaseStudies from "./pages/CaseStudies";
+import CochranePosts from "./pages/CochranePosts";
 
 export default function App() {
   useEffect(() => {
@@ -26,6 +27,8 @@ export default function App() {
         <Route path="/performance" element={<Performance />} />
         <Route path="/case-studies" element={<CaseStudies />} />
         <Route path="/ops-portal/case-studies" element={<CaseStudies />} />
+        <Route path="/cochrane" element={<CochranePosts />} />
+        <Route path="/ops-portal/cochrane" element={<CochranePosts />} />
         <Route path="*" element={<Navigate to="/today" replace />} />
       </Routes>
     </BrowserRouter>
