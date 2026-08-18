@@ -157,7 +157,7 @@ function enforceUrl(txt: string): string {
   let t = txt.replace(/[\s.,;:!?]+$/g, "").trim();
   const parts = t.split(SITE_URL);
   if (parts.length === 1) return `${t}\n\n${SITE_URL}`;
-  t = parts.join(" ").replace(/\s{2,}/g, " ").replace(/[\s.,;:!?]+$/g, "").trim();
+  t = parts.join(" ").replace(/[ \t]{2,}/g, " ").replace(/\n{3,}/g, "\n\n").replace(/[\s.,;:!?]+$/g, "").trim();
   return `${t}\n\n${SITE_URL}`;
 }
 
