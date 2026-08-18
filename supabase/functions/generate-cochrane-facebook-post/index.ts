@@ -226,6 +226,11 @@ ${FB_RULES}`;
     if (hasWeakHook(out)) {
       out = await callAI(system, `${userPrompt}\n\nIMPORTANT: your previous hook opened with a cliché. Rewrite the first line as a plain, contrarian, declarative sentence. No preamble.`);
     }
+    const paragraphs = (t: string) => t.split(/\n\s*\n/).filter((x) => x.trim()).length;
+    if (paragraphs(out) < 4) {
+      out = await callAI(system, `${userPrompt}\n\nIMPORTANT: your previous draft was written as one block of text. Facebook needs air. Rewrite it as four or five short paragraphs separated by a blank line, following the structure exactly: hook, scene, lesson, optional proof on its own paragraph, then the soft close and the URL on its own final line.`);
+    }
+
     const provisional = scrub(out);
     if (provisional.length < MIN_CHARS || provisional.length > MAX_CHARS) {
       out = await callAI(system, `${userPrompt}\n\nIMPORTANT: your previous draft was ${provisional.length} characters. It must land between ${MIN_CHARS} and ${MAX_CHARS}. ${provisional.length > MAX_CHARS ? "Cut adjectives and the weakest paragraph first." : "Add one more concrete line to the scene."}`);
