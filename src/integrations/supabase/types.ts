@@ -373,6 +373,39 @@ export type Database = {
           },
         ]
       }
+      cochrane_angles: {
+        Row: {
+          angle: string
+          category: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_used_at: string | null
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          angle: string
+          category: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          angle?: string
+          category?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: []
+      }
       community_stories: {
         Row: {
           created_at: string
