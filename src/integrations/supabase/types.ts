@@ -406,6 +406,72 @@ export type Database = {
         }
         Relationships: []
       }
+      cochrane_referral_angles: {
+        Row: {
+          angle: string
+          category: string
+          created_at: string
+          enabled: boolean
+          id: string
+          last_used_at: string | null
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          angle: string
+          category: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          angle?: string
+          category?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: []
+      }
+      cochrane_reviews: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          last_used_at: string | null
+          quote: string
+          reviewer_name: string
+          updated_at: string
+          use_count: number
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          quote: string
+          reviewer_name: string
+          updated_at?: string
+          use_count?: number
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          last_used_at?: string | null
+          quote?: string
+          reviewer_name?: string
+          updated_at?: string
+          use_count?: number
+        }
+        Relationships: []
+      }
       community_stories: {
         Row: {
           created_at: string
